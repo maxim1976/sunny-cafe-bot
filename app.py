@@ -40,6 +40,9 @@ LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
+# Initialize DB on startup (works with both gunicorn and direct run)
+bot.init_db()
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
