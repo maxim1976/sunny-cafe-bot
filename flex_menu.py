@@ -3,7 +3,7 @@ flex_menu.py - Builds LINE Flex Message JSON for the café menu.
 Data source: menu.py (single source of truth — never duplicate menu data here).
 """
 
-from menu import MENU, RESTAURANT_INFO
+from menu import MENU, MENU_ZH, RESTAURANT_INFO
 
 # ── Warm café color palette ───────────────────────────────────────────────────
 _HEADER_BG    = "#C8A165"   # amber gold
@@ -41,35 +41,51 @@ _BUTTON_LABEL = {
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
-def _item_row(name: str, price: int, currency: str) -> dict:
-    """One horizontal row: item name left, price right."""
+def _item_row(name: str, price: int) -> dict:
+    """One horizontal row: Chinese name + English name left, price right."""
+    zh_name = MENU_ZH.get(name, name)
     return {
         "type": "box",
         "layout": "horizontal",
         "margin": "sm",
         "contents": [
             {
-                "type": "text",
-                "text": name,
-                "size": "sm",
-                "color": "#333333",
+                "type": "box",
+                "layout": "vertical",
                 "flex": 3,
-                "wrap": True,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": zh_name,
+                        "size": "sm",
+                        "color": "#333333",
+                        "weight": "bold",
+                        "wrap": True,
+                    },
+                    {
+                        "type": "text",
+                        "text": name,
+                        "size": "xxs",
+                        "color": "#AAAAAA",
+                        "wrap": True,
+                    },
+                ],
             },
             {
                 "type": "text",
-                "text": f"NT$ {price}",
+                "text": f"NT${price}",
                 "size": "sm",
                 "color": _PRICE_COLOR,
                 "align": "end",
                 "flex": 2,
                 "weight": "bold",
+                "gravity": "center",
             },
         ],
     }
 
 
-def _category_bubble(category: str, items: dict, currency: str) -> dict:
+def _category_bubble(category: str, items: dict) -> dict:
     """One Flex bubble card for a single menu category."""
     emoji = _CATEGORY_EMOJI.get(category, "•")
     label = _BUTTON_LABEL.get(category, "點餐 / Order")
@@ -81,7 +97,7 @@ def _category_bubble(category: str, items: dict, currency: str) -> dict:
             body_contents.append(
                 {"type": "separator", "color": _SEPARATOR, "margin": "sm"}
             )
-        body_contents.append(_item_row(name, price, currency))
+        body_contents.append(_item_row(name, price))
 
     return {
         "type": "bubble",
@@ -261,11 +277,10 @@ def build_menu_carousel() -> dict:
     Return a Flex carousel dict — one bubble per menu category.
     Pass this directly as the `contents` of a FlexMessage.
     """
-    currency = RESTAURANT_INFO["currency"]
     return {
         "type": "carousel",
         "contents": [
-            _category_bubble(cat, items, currency)
+            _category_bubble(cat, items)
             for cat, items in MENU.items()
         ],
     }

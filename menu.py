@@ -55,6 +55,51 @@ MENU = {
     },
 }
 
+# Chinese display names for Flex Message UI (English keys stay as internal identifiers)
+MENU_ZH = {
+    # ── Categories ──────────────────────────────────────────────────────────
+    "Coffee & Espresso":   "咖啡 & 濃縮",
+    "Non-Coffee":          "非咖啡飲品",
+    "Food":                "餐點",
+    "Pastries & Desserts": "麵包 & 甜點",
+    "Add-ons":             "加點選項",
+    # ── Coffee ──────────────────────────────────────────────────────────────
+    "Espresso":            "義式濃縮",
+    "Americano":           "美式咖啡",
+    "Latte":               "拿鐵",
+    "Cappuccino":          "卡布奇諾",
+    "Mocha":               "摩卡",
+    "Flat White":          "馥列白",
+    "Cold Brew":           "冷萃咖啡",
+    # ── Non-Coffee ──────────────────────────────────────────────────────────
+    "Matcha Latte":        "抹茶拿鐵",
+    "Thai Tea Latte":      "泰奶拿鐵",
+    "Chocolate":           "巧克力飲",
+    "Strawberry Smoothie": "草莓思慕昔",
+    "Mango Smoothie":      "芒果思慕昔",
+    "Fresh Orange Juice":  "新鮮柳橙汁",
+    # ── Food ────────────────────────────────────────────────────────────────
+    "Avocado Toast":       "酪梨吐司",
+    "Eggs Benedict":       "班尼迪克蛋",
+    "Croissant Sandwich":  "可頌三明治",
+    "Club Sandwich":       "總匯三明治",
+    "Caesar Salad":        "凱薩沙拉",
+    "Overnight Oats":      "隔夜燕麥",
+    # ── Pastries ────────────────────────────────────────────────────────────
+    "Butter Croissant":    "奶油可頌",
+    "Blueberry Muffin":    "藍莓馬芬",
+    "Banana Bread":        "香蕉蛋糕",
+    "Cheesecake Slice":    "起司蛋糕",
+    "Chocolate Brownie":   "巧克力布朗尼",
+    # ── Add-ons ─────────────────────────────────────────────────────────────
+    "Extra Shot":          "加濃縮",
+    "Oat Milk":            "燕麥奶",
+    "Almond Milk":         "杏仁奶",
+    "Vanilla Syrup":       "香草糖漿",
+    "Caramel Syrup":       "焦糖糖漿",
+    "Whipped Cream":       "鮮奶油",
+}
+
 # Order fulfillment options
 FULFILLMENT_OPTIONS = ["dine-in", "takeaway", "delivery"]
 
