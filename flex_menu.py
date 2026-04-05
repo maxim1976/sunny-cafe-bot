@@ -179,7 +179,8 @@ def _category_bubble(category: str, items: dict) -> dict:
                 }
             ],
         },
-    }
+    })
+    return bubble
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
