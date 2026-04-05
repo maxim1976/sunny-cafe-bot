@@ -108,6 +108,8 @@ def format_menu_for_prompt() -> str:
     """Return a plain-text menu string suitable for inclusion in a system prompt."""
     lines = [
         f"=== {RESTAURANT_INFO['name']} Menu ===",
+        f"Address: {RESTAURANT_INFO['address']}",
+        f"Phone: {RESTAURANT_INFO['phone']}",
         f"Hours: {RESTAURANT_INFO['hours']}",
         f"Currency: {RESTAURANT_INFO['currency']}",
         "",

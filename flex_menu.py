@@ -332,6 +332,14 @@ def build_menu_header_bubble() -> dict:
     return {
         "type": "bubble",
         "size": "kilo",
+        "hero": {
+            "type": "image",
+            "url": f"{_BASE_URL}/images/welcome.jpg",
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+            "action": {"type": "uri", "label": "store", "uri": _BASE_URL},
+        },
         "body": {
             "type": "box",
             "layout": "vertical",
