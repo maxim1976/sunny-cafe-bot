@@ -4,6 +4,8 @@ app.py - Flask webhook handler for LINE Messaging API
 
 import logging
 import os
+import time
+from collections import defaultdict
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -42,6 +44,26 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 # Initialize DB on startup (works with both gunicorn and direct run)
 bot.init_db()
+
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+# Tracks per-user message timestamps (in-memory, resets on redeploy)
+MAX_MESSAGES_PER_WINDOW = int(os.getenv("RATE_LIMIT_MESSAGES", "10"))
+RATE_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+MAX_MESSAGE_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "500"))
+
+_rate_store: dict = defaultdict(list)  # user_id → [timestamps]
+
+
+def _is_rate_limited(user_id: str) -> bool:
+    now = time.time()
+    window_start = now - RATE_WINDOW_SECONDS
+    timestamps = _rate_store[user_id]
+    # Drop timestamps outside the window
+    _rate_store[user_id] = [t for t in timestamps if t > window_start]
+    if len(_rate_store[user_id]) >= MAX_MESSAGES_PER_WINDOW:
+        return True
+    _rate_store[user_id].append(now)
+    return False
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,6 +141,18 @@ def handle_text_message(event: MessageEvent):
     reply_token: str = event.reply_token
 
     logger.info("Message from %s: %s", user_id, user_text[:80])
+
+    # ── Rate limit check ──────────────────────────────────────────────────────
+    if _is_rate_limited(user_id):
+        logger.warning("Rate limit hit for user %s", user_id)
+        _reply(reply_token, "Please slow down a little. Try again in a minute.")
+        return
+
+    # ── Input length check ────────────────────────────────────────────────────
+    if len(user_text) > MAX_MESSAGE_LENGTH:
+        logger.warning("Oversized message from %s (%d chars)", user_id, len(user_text))
+        _reply(reply_token, "Your message is too long. Please keep it under 500 characters.")
+        return
 
     # Get Claude reply
     reply_text, order_confirmed = bot.get_reply(user_id, user_text)
