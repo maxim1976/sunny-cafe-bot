@@ -5,10 +5,10 @@ Easy to customize per client: just edit the MENU dict and RESTAURANT_INFO.
 
 RESTAURANT_INFO = {
     "name": "Sunny Cafe",
-    "address": "123 Sunshine Street, Bangkok 10100",
-    "phone": "02-123-4567",
-    "hours": "Mon-Sun 08:00 - 20:00",
-    "currency": "THB",
+    "address": "花蓮市中正路 88 號",
+    "phone": "03-888-8888",
+    "hours": "每日 08:00 - 20:00 / Daily 08:00 - 20:00",
+    "currency": "TWD",
 }
 
 # Structure: { "Category": { "Item Name": price, ... }, ... }

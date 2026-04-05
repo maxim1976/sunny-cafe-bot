@@ -19,11 +19,13 @@ from linebot.v3.messaging import (
     MessagingApi,
     ReplyMessageRequest,
     TextMessage,
+    FlexMessage,
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 
 import bot
 import printer
+import flex_menu
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -77,6 +79,33 @@ def _reply(reply_token: str, text: str) -> None:
                 messages=[TextMessage(text=text)],
             )
         )
+
+
+def _reply_menu(reply_token: str) -> None:
+    """Send the visual menu: welcome bubble + category carousel."""
+    messages = [
+        FlexMessage(
+            alt_text="☀️ Sunny Cafe Menu",
+            contents=flex_menu.build_menu_header_bubble(),
+        ),
+        FlexMessage(
+            alt_text="Browse our menu categories",
+            contents=flex_menu.build_menu_carousel(),
+        ),
+    ]
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message(
+            ReplyMessageRequest(reply_token=reply_token, messages=messages)
+        )
+
+
+# Keywords that trigger the visual menu (case-insensitive, exact or prefix match)
+_MENU_TRIGGERS = {"menu", "เมนู", "show menu", "see menu", "view menu", "our menu"}
+
+
+def _is_menu_request(text: str) -> bool:
+    return text.lower().strip() in _MENU_TRIGGERS
 
 
 def _handle_confirmed_order(user_id: str) -> None:
@@ -152,6 +181,11 @@ def handle_text_message(event: MessageEvent):
     if len(user_text) > MAX_MESSAGE_LENGTH:
         logger.warning("Oversized message from %s (%d chars)", user_id, len(user_text))
         _reply(reply_token, "Your message is too long. Please keep it under 500 characters.")
+        return
+
+    # ── Menu shortcut ─────────────────────────────────────────────────────────
+    if _is_menu_request(user_text):
+        _reply_menu(reply_token)
         return
 
     # Get Claude reply
