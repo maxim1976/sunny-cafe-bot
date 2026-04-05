@@ -2,9 +2,12 @@
 app.py - Flask webhook handler for LINE Messaging API
 """
 
+import json
 import logging
 import os
 import time
+import urllib.error
+import urllib.request
 from collections import defaultdict
 
 from dotenv import load_dotenv
@@ -19,7 +22,6 @@ from linebot.v3.messaging import (
     MessagingApi,
     ReplyMessageRequest,
     TextMessage,
-    FlexMessage,
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 
@@ -81,23 +83,43 @@ def _reply(reply_token: str, text: str) -> None:
         )
 
 
+def _reply_flex(reply_token: str, payloads: list[tuple[str, dict]]) -> None:
+    """
+    Send Flex Messages via raw LINE reply API.
+    Bypasses the SDK's FlexMessage serialization which doesn't handle plain dicts.
+    payloads: list of (alt_text, flex_contents_dict)
+    """
+    messages = [
+        {"type": "flex", "altText": alt_text, "contents": contents}
+        for alt_text, contents in payloads
+    ]
+    body = json.dumps(
+        {"replyToken": reply_token, "messages": messages},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/reply",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Flex reply sent (status %s)", resp.status)
+    except urllib.error.HTTPError as exc:
+        logger.error("LINE API error sending Flex: %s %s", exc.code, exc.read().decode())
+        raise
+
+
 def _reply_menu(reply_token: str) -> None:
     """Send the visual menu: welcome bubble + category carousel."""
-    messages = [
-        FlexMessage(
-            alt_text="☀️ Sunny Cafe Menu",
-            contents=flex_menu.build_menu_header_bubble(),
-        ),
-        FlexMessage(
-            alt_text="Browse our menu categories",
-            contents=flex_menu.build_menu_carousel(),
-        ),
-    ]
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(
-            ReplyMessageRequest(reply_token=reply_token, messages=messages)
-        )
+    _reply_flex(reply_token, [
+        ("☀️ Sunny Cafe Menu", flex_menu.build_menu_header_bubble()),
+        ("瀏覽菜單 Browse our menu →", flex_menu.build_menu_carousel()),
+    ])
 
 
 # Keywords that trigger the visual menu (case-insensitive, exact or prefix match)
@@ -166,22 +188,10 @@ def webhook():
 @handler.add(FollowEvent)
 def handle_follow(event: FollowEvent):
     """Sent when a user adds the bot — welcome message + menu carousel."""
-    reply_token: str = event.reply_token
-    messages = [
-        FlexMessage(
-            alt_text="歡迎來到 Sunny Cafe！Welcome!",
-            contents=flex_menu.build_welcome_flex(),
-        ),
-        FlexMessage(
-            alt_text="☀️ Sunny Cafe Menu",
-            contents=flex_menu.build_menu_carousel(),
-        ),
-    ]
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(
-            ReplyMessageRequest(reply_token=reply_token, messages=messages)
-        )
+    _reply_flex(event.reply_token, [
+        ("歡迎來到 Sunny Cafe！Welcome!", flex_menu.build_welcome_flex()),
+        ("☀️ Sunny Cafe Menu", flex_menu.build_menu_carousel()),
+    ])
     logger.info("Follow event — welcome sent")
 
 
