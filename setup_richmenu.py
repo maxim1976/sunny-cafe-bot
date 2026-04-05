@@ -126,7 +126,7 @@ def upload_image(rich_menu_id: str):
 
 
 def set_default(rich_menu_id: str):
-    _line_post(f"/v2/bot/users/all/richmenu/{rich_menu_id}", payload={})
+    _line_post(f"/v2/bot/user/all/richmenu/{rich_menu_id}", payload={})
     print("✓ Set as default rich menu for all users")
 
 
