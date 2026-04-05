@@ -16,13 +16,7 @@ load_dotenv()
 from flask import Flask, abort, request
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.messaging import (
-    ApiClient,
-    Configuration,
-    MessagingApi,
-    ReplyMessageRequest,
-    TextMessage,
-)
+from linebot.v3.messaging import ApiClient, Configuration, MessagingApi
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 
 import bot
@@ -72,15 +66,51 @@ def _is_rate_limited(user_id: str) -> bool:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _reply(reply_token: str, text: str) -> None:
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TextMessage(text=text)],
-            )
-        )
+# Phrase injected by the system prompt into every order summary
+_ORDER_SUMMARY_MARKER = "確認請回覆「確認」或 confirm"
+
+_CONFIRM_QUICK_REPLY = {
+    "items": [
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "✅ 確認 Confirm", "text": "確認"},
+        },
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "✏️ 修改 Modify",  "text": "我想修改訂單"},
+        },
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "❌ 取消 Cancel",  "text": "取消訂單"},
+        },
+    ]
+}
+
+
+def _reply_text_raw(reply_token: str, text: str, quick_reply: dict | None = None) -> None:
+    """Send a text message via raw LINE API, with optional Quick Reply buttons."""
+    message: dict = {"type": "text", "text": text}
+    if quick_reply:
+        message["quickReply"] = quick_reply
+    body = json.dumps(
+        {"replyToken": reply_token, "messages": [message]},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/reply",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Text reply sent (status %s)", resp.status)
+    except urllib.error.HTTPError as exc:
+        logger.error("LINE API error sending text: %s %s", exc.code, exc.read().decode())
+        raise
 
 
 def _reply_flex(reply_token: str, payloads: list[tuple[str, dict]]) -> None:
@@ -206,13 +236,13 @@ def handle_text_message(event: MessageEvent):
     # ── Rate limit check ──────────────────────────────────────────────────────
     if _is_rate_limited(user_id):
         logger.warning("Rate limit hit for user %s", user_id)
-        _reply(reply_token, "Please slow down a little. Try again in a minute.")
+        _reply_text_raw(reply_token, "請稍慢一點，一分鐘後再試。\nPlease slow down. Try again in a minute.")
         return
 
     # ── Input length check ────────────────────────────────────────────────────
     if len(user_text) > MAX_MESSAGE_LENGTH:
         logger.warning("Oversized message from %s (%d chars)", user_id, len(user_text))
-        _reply(reply_token, "Your message is too long. Please keep it under 500 characters.")
+        _reply_text_raw(reply_token, "訊息太長了，請保持在500字以內。\nMessage too long. Please keep it under 500 characters.")
         return
 
     # ── Menu shortcut ─────────────────────────────────────────────────────────
@@ -223,8 +253,11 @@ def handle_text_message(event: MessageEvent):
     # Get Claude reply
     reply_text, order_confirmed = bot.get_reply(user_id, user_text)
 
-    # Send reply to user first (keep response time snappy)
-    _reply(reply_token, reply_text)
+    # Attach Quick Reply buttons when Claude shows the order summary
+    if _ORDER_SUMMARY_MARKER in reply_text:
+        _reply_text_raw(reply_token, reply_text, quick_reply=_CONFIRM_QUICK_REPLY)
+    else:
+        _reply_text_raw(reply_token, reply_text)
 
     # Print ticket asynchronously-ish (same process; printer errors don't block)
     if order_confirmed:
