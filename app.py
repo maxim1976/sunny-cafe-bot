@@ -13,7 +13,7 @@ from collections import defaultdict
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, abort, request
+from flask import Flask, abort, request, send_from_directory
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import ApiClient, Configuration, MessagingApi
@@ -192,6 +192,11 @@ def _handle_confirmed_order(user_id: str) -> None:
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    return send_from_directory("images", filename)
+
 
 @app.route("/health")
 def health():

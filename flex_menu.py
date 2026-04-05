@@ -3,7 +3,21 @@ flex_menu.py - Builds LINE Flex Message JSON for the café menu.
 Data source: menu.py (single source of truth — never duplicate menu data here).
 """
 
+import os
+
 from menu import MENU, MENU_ZH, RESTAURANT_INFO
+
+# Base URL for serving static images — set BASE_URL in Railway environment variables
+_BASE_URL = os.getenv("BASE_URL", "https://web-production-22461.up.railway.app").rstrip("/")
+
+# Image file per category (served from /images/)
+_CATEGORY_IMAGE = {
+    "Coffee & Espresso":   "coffee.jpg",
+    "Non-Coffee":          "non-coffee.jpg",
+    "Food":                "food.jpg",
+    "Pastries & Desserts": "pastries.jpg",
+    "Add-ons":             None,   # no hero image for add-ons
+}
 
 # ── Warm café color palette ───────────────────────────────────────────────────
 _HEADER_BG    = "#C8A165"   # amber gold
@@ -99,9 +113,24 @@ def _category_bubble(category: str, items: dict) -> dict:
             )
         body_contents.append(_item_row(name, price))
 
-    return {
-        "type": "bubble",
-        "size": "kilo",
+    img_file = _CATEGORY_IMAGE.get(category)
+    bubble: dict = {"type": "bubble", "size": "mega"}
+
+    if img_file:
+        bubble["hero"] = {
+            "type": "image",
+            "url": f"{_BASE_URL}/images/{img_file}",
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+            "action": {
+                "type": "message",
+                "label": zh_name,
+                "text": f"I'd like to order from {category}",
+            },
+        }
+
+    bubble.update({
         "header": {
             "type": "box",
             "layout": "vertical",
@@ -162,6 +191,14 @@ def build_welcome_flex() -> dict:
     """
     return {
         "type": "bubble",
+        "hero": {
+            "type": "image",
+            "url": f"{_BASE_URL}/images/welcome.jpg",
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+            "action": {"type": "uri", "label": "store", "uri": _BASE_URL},
+        },
         "header": {
             "type": "box",
             "layout": "vertical",
