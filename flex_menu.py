@@ -16,7 +16,7 @@ _CATEGORY_IMAGE = {
     "Non-Coffee":          "non-coffee.jpg",
     "Food":                "food.jpg",
     "Pastries & Desserts": "pastries.jpg",
-    "Add-ons":             None,   # no hero image for add-ons
+    "Add-ons":             "addons.jpg",
 }
 
 # ── Warm café color palette ───────────────────────────────────────────────────
