@@ -139,6 +139,123 @@ def _category_bubble(category: str, items: dict, currency: str) -> dict:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def build_welcome_flex() -> dict:
+    """
+    Welcome Flex bubble sent when a user first adds the bot.
+    Explains how to interact in Chinese and English.
+    """
+    return {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": _HEADER_BG,
+            "paddingAll": "20px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"☀️  {RESTAURANT_INFO['name']}",
+                    "color": "#FFFFFF",
+                    "weight": "bold",
+                    "size": "xl",
+                },
+                {
+                    "type": "text",
+                    "text": "花蓮 · Hualien, Taiwan",
+                    "color": "#F5E6CC",
+                    "size": "xs",
+                    "margin": "xs",
+                },
+            ],
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "16px",
+            "spacing": "md",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "歡迎！很高興為您服務 😊",
+                    "weight": "bold",
+                    "size": "md",
+                    "color": "#333333",
+                    "wrap": True,
+                },
+                {
+                    "type": "text",
+                    "text": "Welcome! We're happy to serve you.",
+                    "size": "sm",
+                    "color": "#888888",
+                    "wrap": True,
+                },
+                {"type": "separator", "color": _SEPARATOR, "margin": "md"},
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "md",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "💡 如何點餐 / How to order:",
+                            "size": "sm",
+                            "weight": "bold",
+                            "color": _BUTTON_COLOR,
+                        },
+                        {
+                            "type": "text",
+                            "text": "• 點下方按鈕查看完整菜單",
+                            "size": "sm",
+                            "color": "#555555",
+                            "wrap": True,
+                        },
+                        {
+                            "type": "text",
+                            "text": "  Tap the button below to browse our menu",
+                            "size": "sm",
+                            "color": "#999999",
+                            "wrap": True,
+                        },
+                        {
+                            "type": "text",
+                            "text": "• 或直接告訴我您想點什麼",
+                            "size": "sm",
+                            "color": "#555555",
+                            "wrap": True,
+                            "margin": "sm",
+                        },
+                        {
+                            "type": "text",
+                            "text": "  Or just tell me what you'd like to order",
+                            "size": "sm",
+                            "color": "#999999",
+                            "wrap": True,
+                        },
+                    ],
+                },
+            ],
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "12px",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": _BUTTON_COLOR,
+                    "action": {
+                        "type": "message",
+                        "label": "☕ 查看菜單 / View Menu",
+                        "text": "menu",
+                    },
+                }
+            ],
+        },
+    }
+
+
 def build_menu_carousel() -> dict:
     """
     Return a Flex carousel dict — one bubble per menu category.

@@ -21,7 +21,7 @@ from linebot.v3.messaging import (
     TextMessage,
     FlexMessage,
 )
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 
 import bot
 import printer
@@ -161,7 +161,29 @@ def webhook():
     return "OK"
 
 
-# ── Event handler ─────────────────────────────────────────────────────────────
+# ── Event handlers ────────────────────────────────────────────────────────────
+
+@handler.add(FollowEvent)
+def handle_follow(event: FollowEvent):
+    """Sent when a user adds the bot — welcome message + menu carousel."""
+    reply_token: str = event.reply_token
+    messages = [
+        FlexMessage(
+            alt_text="歡迎來到 Sunny Cafe！Welcome!",
+            contents=flex_menu.build_welcome_flex(),
+        ),
+        FlexMessage(
+            alt_text="☀️ Sunny Cafe Menu",
+            contents=flex_menu.build_menu_carousel(),
+        ),
+    ]
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message(
+            ReplyMessageRequest(reply_token=reply_token, messages=messages)
+        )
+    logger.info("Follow event — welcome sent")
+
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_text_message(event: MessageEvent):
