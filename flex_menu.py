@@ -4,6 +4,7 @@ Data source: menu.py (single source of truth — never duplicate menu data here)
 """
 
 import os
+import urllib.parse
 
 from menu import MENU, MENU_ZH, RESTAURANT_INFO
 
@@ -279,7 +280,7 @@ def build_dine_in_info_bubble() -> dict:
     Info card sent when a customer selects dine-in.
     Shows address, hours, phone and a Google Maps button.
     """
-    maps_url = f"https://maps.google.com/?q={RESTAURANT_INFO['address']}"
+    maps_url = "https://maps.google.com/?q=" + urllib.parse.quote(RESTAURANT_INFO["address"])
     return {
         "type": "bubble",
         "size": "mega",
