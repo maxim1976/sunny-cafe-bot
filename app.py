@@ -22,6 +22,7 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 import bot
 import printer
 import flex_menu
+from menu import MENU
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -152,12 +153,61 @@ def _reply_menu(reply_token: str) -> None:
     ])
 
 
-# Keywords that trigger the visual menu (case-insensitive, exact or prefix match)
-_MENU_TRIGGERS = {"menu", "เมนู", "show menu", "see menu", "view menu", "our menu"}
+# Keywords that trigger the visual menu (exact match, case-insensitive)
+_MENU_TRIGGERS = {
+    "menu", "เมนู", "show menu", "see menu", "view menu", "our menu",
+    "菜單", "看菜單", "點餐", "我想點", "我要點菜",
+}
 
 
 def _is_menu_request(text: str) -> bool:
     return text.lower().strip() in _MENU_TRIGGERS
+
+
+# Category selection — sent by Flex Message buttons in the menu carousel
+_CATEGORY_ORDER_TRIGGER = "I'd like to order from "
+_CATEGORY_FROM_TRIGGER = {
+    f"I'd like to order from {cat}": cat
+    for cat in MENU
+}
+
+
+def _get_ordered_category(text: str) -> str | None:
+    """Return the category name if the text is a category-order trigger, else None."""
+    return _CATEGORY_FROM_TRIGGER.get(text)
+
+
+def _reply_item_selection(reply_token: str, category: str) -> None:
+    """Send item selection bubble + quick reply buttons for a category."""
+    bubble = flex_menu.build_item_selection_bubble(category)
+    quick_reply = flex_menu.build_item_quick_replies(category)
+    zh_name = flex_menu._CATEGORY_ZH.get(category, category)
+
+    message = {
+        "type": "flex",
+        "altText": f"{zh_name} — 請點選您想要的品項 👇",
+        "contents": bubble,
+        "quickReply": quick_reply,
+    }
+    body = json.dumps(
+        {"replyToken": reply_token, "messages": [message]},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/reply",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Item selection sent for category '%s' (status %s)", category, resp.status)
+    except urllib.error.HTTPError as exc:
+        logger.error("LINE API error sending item selection: %s %s", exc.code, exc.read().decode())
+        raise
 
 
 def _handle_confirmed_order(user_id: str) -> None:
@@ -253,6 +303,12 @@ def handle_text_message(event: MessageEvent):
     # ── Menu shortcut ─────────────────────────────────────────────────────────
     if _is_menu_request(user_text):
         _reply_menu(reply_token)
+        return
+
+    # ── Category selected → show item picker (never reaches Claude) ───────────
+    category = _get_ordered_category(user_text)
+    if category:
+        _reply_item_selection(reply_token, category)
         return
 
     # Get Claude reply

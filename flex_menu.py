@@ -183,6 +183,95 @@ def _category_bubble(category: str, items: dict) -> dict:
     return bubble
 
 
+# ── Item selection (sent when customer taps a category order button) ──────────
+
+def build_item_selection_bubble(category: str) -> dict:
+    """
+    A Flex bubble listing all items in a category with prices.
+    Sent together with quick reply buttons — customer taps to select an item.
+    """
+    emoji   = _CATEGORY_EMOJI.get(category, "•")
+    zh_name = _CATEGORY_ZH.get(category, category)
+    items   = MENU.get(category, {})
+
+    body_contents = []
+    for i, (name, price) in enumerate(items.items()):
+        if i > 0:
+            body_contents.append(
+                {"type": "separator", "color": _SEPARATOR, "margin": "sm"}
+            )
+        body_contents.append(_item_row(name, price))
+
+    bubble: dict = {"type": "bubble", "size": "mega"}
+
+    img_file = _CATEGORY_IMAGE.get(category)
+    if img_file:
+        bubble["hero"] = {
+            "type": "image",
+            "url": f"{_BASE_URL}/images/{img_file}",
+            "size": "full",
+            "aspectRatio": "20:13",
+            "aspectMode": "cover",
+        }
+
+    bubble["header"] = {
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": _HEADER_BG,
+        "paddingAll": "16px",
+        "contents": [
+            {
+                "type": "text",
+                "text": f"{emoji}  {zh_name}",
+                "color": _HEADER_TEXT,
+                "weight": "bold",
+                "size": "md",
+                "wrap": True,
+            },
+            {
+                "type": "text",
+                "text": "👇 點下方按鈕選擇品項",
+                "color": "#F5E6CC",
+                "size": "xs",
+                "margin": "xs",
+            },
+        ],
+    }
+
+    bubble["body"] = {
+        "type": "box",
+        "layout": "vertical",
+        "paddingAll": "12px",
+        "spacing": "none",
+        "contents": body_contents,
+    }
+
+    return bubble
+
+
+def build_item_quick_replies(category: str) -> dict:
+    """
+    Quick reply buttons — one per item in the category.
+    Label shows Chinese name + price; tapping sends "我要點 {zh_name}".
+    """
+    items = MENU.get(category, {})
+    quick_reply_items = []
+    for name, price in items.items():
+        zh_name = MENU_ZH.get(name, name)
+        label = f"{zh_name} NT${price}"
+        if len(label) > 20:
+            label = label[:19] + "…"
+        quick_reply_items.append({
+            "type": "action",
+            "action": {
+                "type": "message",
+                "label": label,
+                "text": f"我要點 {zh_name}",
+            },
+        })
+    return {"items": quick_reply_items}
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def build_welcome_flex() -> dict:

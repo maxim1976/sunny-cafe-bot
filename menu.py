@@ -105,7 +105,10 @@ FULFILLMENT_OPTIONS = ["dine-in", "takeaway", "delivery"]
 
 
 def format_menu_for_prompt() -> str:
-    """Return a plain-text menu string suitable for inclusion in a system prompt."""
+    """Return a plain-text menu string suitable for inclusion in a system prompt.
+    Each item includes both Chinese and English names so the bot can use the
+    correct language depending on the customer's language.
+    """
     lines = [
         f"=== {RESTAURANT_INFO['name']} Menu ===",
         f"Address: {RESTAURANT_INFO['address']}",
@@ -115,11 +118,17 @@ def format_menu_for_prompt() -> str:
         "",
     ]
     for category, items in MENU.items():
-        lines.append(f"[ {category} ]")
+        zh_category = MENU_ZH.get(category, category)
+        lines.append(f"[ {zh_category} / {category} ]")
         for item, price in items.items():
-            lines.append(f"  - {item}: {price} {RESTAURANT_INFO['currency']}")
+            zh_item = MENU_ZH.get(item, item)
+            lines.append(f"  - {zh_item} ({item}): {price} {RESTAURANT_INFO['currency']}")
         lines.append("")
     lines.append(f"Fulfillment options: {', '.join(FULFILLMENT_OPTIONS)}")
+    lines.append(
+        "IMPORTANT: When replying in Traditional Chinese, always use the Chinese item names "
+        "(e.g., 拿鐵, 美式咖啡). When replying in English, use the English names in parentheses."
+    )
     return "\n".join(lines)
 
 
