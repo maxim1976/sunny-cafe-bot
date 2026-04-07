@@ -435,13 +435,13 @@ def handle_text_message(event: MessageEvent):
             cart = _CARTS[user_id]
             msg = {
                 "type": "flex",
-                "altText": f"已加入：{zh_name}",
+                "altText": f"Added: {zh_name}",
                 "contents": flex_menu.build_cart_bubble(cart),
                 "quickReply": flex_menu.build_cart_actions_quick_reply(),
             }
             _reply_messages(reply_token, [msg])
         else:
-            _reply_text_raw(reply_token, f"找不到品項「{zh_name}」，請重新選擇。")
+            _reply_text_raw(reply_token, f"Item not found. Please select from the menu.")
         return
 
     # ── Cart: add more items ──────────────────────────────────────────────────
@@ -453,11 +453,11 @@ def handle_text_message(event: MessageEvent):
     if user_text == "結帳":
         cart = _CARTS[user_id]
         if not cart:
-            _reply_text_raw(reply_token, "購物車是空的，請先選擇品項。\nYour cart is empty. Please select items first.")
+            _reply_text_raw(reply_token, "Your cart is empty. Please select items first.\n購物車是空的，請先選擇品項。")
             return
         msg = {
             "type": "flex",
-            "altText": "確認您的訂單 / Confirm your order",
+            "altText": "Confirm your order / 確認您的訂單",
             "contents": flex_menu.build_cart_bubble(cart),
             "quickReply": flex_menu.build_checkout_quick_reply(),
         }
@@ -468,7 +468,7 @@ def handle_text_message(event: MessageEvent):
     if user_text == "確認結帳":
         cart = _CARTS[user_id]
         if not cart:
-            _reply_text_raw(reply_token, "購物車是空的，請先選擇品項。\nYour cart is empty. Please select items first.")
+            _reply_text_raw(reply_token, "Your cart is empty. Please select items first.\n購物車是空的，請先選擇品項。")
             return
         order_text = _cart_to_order_text(user_id)
         display_name = _get_line_display_name(user_id)
@@ -495,7 +495,7 @@ def handle_text_message(event: MessageEvent):
         _cart_clear(user_id)
         _reply_text_raw(
             reply_token,
-            "訂單已取消。如需重新點餐，請點選下方菜單。\nOrder cancelled. Tap the menu button to start again.",
+            "Order cancelled. Tap the menu button to start again.\n訂單已取消。如需重新點餐，請點選下方菜單。",
         )
         return
 

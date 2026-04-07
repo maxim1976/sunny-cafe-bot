@@ -275,7 +275,7 @@ def build_item_quick_replies(category: str) -> dict:
         "type": "action",
         "action": {
             "type": "message",
-            "label": "← 返回菜單",
+            "label": "← 返回 / Back",
             "text": "menu",
         },
     })
@@ -402,15 +402,15 @@ def build_cart_actions_quick_reply() -> dict:
         "items": [
             {
                 "type": "action",
-                "action": {"type": "message", "label": "➕ 繼續點餐", "text": "繼續點餐"},
+                "action": {"type": "message", "label": "➕ 繼續 / Add More", "text": "繼續點餐"},
             },
             {
                 "type": "action",
-                "action": {"type": "message", "label": "✅ 去結帳", "text": "結帳"},
+                "action": {"type": "message", "label": "✅ 結帳 / Checkout", "text": "結帳"},
             },
             {
                 "type": "action",
-                "action": {"type": "message", "label": "❌ 取消", "text": "取消訂單"},
+                "action": {"type": "message", "label": "❌ 取消 / Cancel", "text": "取消訂單"},
             },
         ]
     }
@@ -422,15 +422,15 @@ def build_checkout_quick_reply() -> dict:
         "items": [
             {
                 "type": "action",
-                "action": {"type": "message", "label": "✅ 確認 Confirm", "text": "確認結帳"},
+                "action": {"type": "message", "label": "✅ 確認 / Confirm", "text": "確認結帳"},
             },
             {
                 "type": "action",
-                "action": {"type": "message", "label": "✏️ 修改 Edit", "text": "重新點餐"},
+                "action": {"type": "message", "label": "✏️ 修改 / Edit", "text": "重新點餐"},
             },
             {
                 "type": "action",
-                "action": {"type": "message", "label": "❌ 取消 Cancel", "text": "取消訂單"},
+                "action": {"type": "message", "label": "❌ 取消 / Cancel", "text": "取消訂單"},
             },
         ]
     }
