@@ -263,10 +263,10 @@ def _get_ordered_category(text: str) -> str | None:
     return _CATEGORY_FROM_TRIGGER.get(text)
 
 
-def _reply_item_selection(reply_token: str, category: str) -> None:
+def _reply_item_selection(reply_token: str, category: str, lang: str = "zh") -> None:
     """Send item selection bubble + quick reply buttons for a category."""
     bubble = flex_menu.build_item_selection_bubble(category)
-    quick_reply = flex_menu.build_item_quick_replies(category)
+    quick_reply = flex_menu.build_item_quick_replies(category, lang)
     zh_name = flex_menu._CATEGORY_ZH.get(category, category)
 
     message = {
@@ -416,7 +416,7 @@ def handle_text_message(event: MessageEvent):
     # ── Category selected → show item picker (never reaches Claude) ───────────
     category = _get_ordered_category(user_text)
     if category:
-        _reply_item_selection(reply_token, category)
+        _reply_item_selection(reply_token, category, _get_lang(user_id))
         return
 
     # ── Cart: item added via quick reply ("我要點 {zh_name}") ─────────────────
@@ -424,10 +424,11 @@ def handle_text_message(event: MessageEvent):
         zh_name = user_text[4:].strip()
         if _cart_add(user_id, zh_name):
             cart = bot.cart_get(user_id)
+            lang = _get_lang(user_id)
             msg = {
                 "type": "flex",
                 "altText": f"Added: {zh_name}",
-                "contents": flex_menu.build_cart_bubble(cart),
+                "contents": flex_menu.build_cart_bubble(cart, lang),
                 "quickReply": flex_menu.build_cart_actions_quick_reply(),
             }
             _reply_messages(reply_token, [msg])
@@ -449,7 +450,7 @@ def handle_text_message(event: MessageEvent):
         msg = {
             "type": "flex",
             "altText": "Confirm your order / 確認您的訂單",
-            "contents": flex_menu.build_cart_bubble(cart),
+            "contents": flex_menu.build_cart_bubble(cart, _get_lang(user_id)),
             "quickReply": flex_menu.build_checkout_quick_reply(),
         }
         _reply_messages(reply_token, [msg])

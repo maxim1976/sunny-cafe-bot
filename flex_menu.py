@@ -250,16 +250,18 @@ def build_item_selection_bubble(category: str) -> dict:
     return bubble
 
 
-def build_item_quick_replies(category: str) -> dict:
+def build_item_quick_replies(category: str, lang: str = "zh") -> dict:
     """
     Quick reply buttons — one per item in the category.
-    Label shows Chinese name + price; tapping sends "我要點 {zh_name}".
+    Label uses English or Chinese depending on lang preference.
+    Text always sends "我要點 {zh_name}" for cart lookup.
     """
     items = MENU.get(category, {})
     quick_reply_items = []
     for name, price in items.items():
         zh_name = MENU_ZH.get(name, name)
-        label = f"{zh_name} NT${price}"
+        display = name if lang == "en" else zh_name
+        label = f"{display} NT${price}"
         if len(label) > 20:
             label = label[:19] + "…"
         quick_reply_items.append({
@@ -284,7 +286,7 @@ def build_item_quick_replies(category: str) -> dict:
 
 # ── Cart UI ───────────────────────────────────────────────────────────────────
 
-def build_cart_bubble(cart_items: list[dict]) -> dict:
+def build_cart_bubble(cart_items: list[dict], lang: str = "zh") -> dict:
     """
     Flex bubble showing the current cart contents and running total.
     cart_items: [{"name": str, "zh_name": str, "price": int, "qty": int}, ...]
@@ -296,6 +298,7 @@ def build_cart_bubble(cart_items: list[dict]) -> dict:
         if i > 0:
             rows.append({"type": "separator", "color": _SEPARATOR, "margin": "sm"})
         subtotal = item["price"] * item["qty"]
+        display_name = item["name"] if lang == "en" else item["zh_name"]
         rows.append({
             "type": "box",
             "layout": "horizontal",
@@ -308,7 +311,7 @@ def build_cart_bubble(cart_items: list[dict]) -> dict:
                     "contents": [
                         {
                             "type": "text",
-                            "text": item["zh_name"],
+                            "text": display_name,
                             "size": "sm",
                             "color": "#333333",
                             "weight": "bold",
