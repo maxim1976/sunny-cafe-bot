@@ -74,6 +74,7 @@ def _next_order_number() -> int:
 def build_ticket(
     order_number: int,
     customer_name: str,
+    phone: str,
     items: list[dict],   # [{"name": str, "qty": int, "price": int}, ...]
     total: int,
     fulfillment: str,    # "dine-in" | "takeaway" | "delivery"
@@ -95,6 +96,7 @@ def build_ticket(
     buf += _bold(f"Order #: {order_number:04d}") + _line()
     buf += _line(f"Time    : {now}")
     buf += _line(f"Name    : {customer_name}")
+    buf += _line(f"Phone   : {phone}")
     buf += _line(f"Type    : {fulfillment.upper()}")
     buf += _divider()
 
@@ -162,6 +164,7 @@ def _send_to_printer(data: bytes) -> bool:
 
 def print_order_ticket(
     customer_name: str,
+    phone: str,
     items: list[dict],
     total: int,
     fulfillment: str,
@@ -181,6 +184,7 @@ def print_order_ticket(
     ticket = build_ticket(
         order_number=order_number,
         customer_name=customer_name,
+        phone=phone,
         items=items,
         total=total,
         fulfillment=fulfillment,
@@ -210,19 +214,29 @@ def parse_order_from_text(text: str) -> dict:
     """
     result = {
         "customer_name": "Guest",
+        "phone": "",
         "items": [],
         "total": 0,
         "fulfillment": "takeaway",
     }
 
-    # Customer name: look for patterns like "Name: John" or "for John"
+    # Customer name — Chinese: "姓名 Name：Wang Wei" or English: "Name: John"
     name_match = re.search(
-        r"(?:name[:\s]+|order for\s+)([A-Za-z][A-Za-z\s]{1,30})",
+        r"(?:姓名\s*Name[：:]\s*|name[:\s]+|order for\s+)([^\n\r]{1,30})",
         text,
         re.IGNORECASE,
     )
     if name_match:
-        result["customer_name"] = name_match.group(1).strip().title()
+        result["customer_name"] = name_match.group(1).strip()
+
+    # Phone number — "電話 Phone：0912345678"
+    phone_match = re.search(
+        r"(?:電話\s*Phone[：:]\s*|phone[:\s]+|tel[:\s]+)([\d\s\-\+\(\)]{6,20})",
+        text,
+        re.IGNORECASE,
+    )
+    if phone_match:
+        result["phone"] = phone_match.group(1).strip()
 
     # Fulfillment type
     for ftype in ("dine-in", "dine in", "takeaway", "take away", "delivery"):

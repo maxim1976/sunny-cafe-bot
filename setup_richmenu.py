@@ -44,7 +44,7 @@ def create_image():
 
     # Left half — amber (View Menu)
     draw.rectangle([0, 0, W // 2 - 3, H], fill=_AMBER)
-    # Right half — dark coffee (Start Order)
+    # Right half — dark coffee (Language switch)
     draw.rectangle([W // 2 + 3, 0, W, H], fill=_COFFEE)
     # Center divider
     draw.rectangle([W // 2 - 3, 0, W // 2 + 3, H], fill=_WHITE)
@@ -62,13 +62,13 @@ def create_image():
     cx_right = 3 * W // 4
     cy       = H // 2
 
-    # Left button labels
+    # Left button — View Menu
     draw.text((cx_left, cy - 30), "☕ 查看菜單", fill=_WHITE,      font=font_lg, anchor="mm")
     draw.text((cx_left, cy + 40), "View Menu",   fill=_CREAM_DARK, font=font_sm, anchor="mm")
 
-    # Right button labels
-    draw.text((cx_right, cy - 30), "💬 開始點餐",  fill=_WHITE,      font=font_lg, anchor="mm")
-    draw.text((cx_right, cy + 40), "Start Order", fill=_CREAM_SOFT, font=font_sm, anchor="mm")
+    # Right button — Language switch
+    draw.text((cx_right, cy - 30), "🌐 切換語言",  fill=_WHITE,      font=font_lg, anchor="mm")
+    draw.text((cx_right, cy + 40), "EN / 中文",   fill=_CREAM_SOFT, font=font_sm, anchor="mm")
 
     img.save(IMAGE_PATH, "JPEG", quality=95)
     print(f"✓ Image created: {IMAGE_PATH}")
@@ -104,7 +104,7 @@ def create_rich_menu() -> str:
             },
             {
                 "bounds": {"x": W // 2, "y": 0, "width": W // 2, "height": H},
-                "action": {"type": "message", "label": "開始點餐", "text": "我想點餐"},
+                "action": {"type": "message", "label": "切換語言", "text": "切換語言"},
             },
         ],
     }
@@ -147,6 +147,5 @@ if __name__ == "__main__":
     print(f"   Rich Menu ID: {rich_menu_id}")
     print("   (Keep this ID if you need to update or delete it later)")
     print()
-    print("   Users will see two buttons at the bottom of the chat:")
-    print("   ☕ 查看菜單 / View Menu   →  sends 'menu'")
-    print("   💬 開始點餐 / Start Order →  starts ordering with Claude")
+    print("   Users will see one button at the bottom of the chat:")
+    print("   ☕ 查看菜單 / View Menu  →  sends 'menu'")
