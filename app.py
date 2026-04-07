@@ -87,6 +87,28 @@ _CONFIRM_QUICK_REPLY = {
     ]
 }
 
+_FULFILLMENT_QUICK_REPLY = {
+    "items": [
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "🏠 內用 Dine-in",    "text": "內用"},
+        },
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "🛍 外帶 Takeaway",   "text": "外帶"},
+        },
+        {
+            "type": "action",
+            "action": {"type": "message", "label": "🛵 外送 Delivery",   "text": "外送"},
+        },
+    ]
+}
+
+
+def _is_fulfillment_question(text: str) -> bool:
+    """True when Claude is asking the customer to choose a fulfillment method."""
+    return "內用" in text and "外帶" in text and "外送" in text
+
 
 def _reply_text_raw(reply_token: str, text: str, quick_reply: dict | None = None) -> None:
     """Send a text message via raw LINE API, with optional Quick Reply buttons."""
@@ -142,6 +164,29 @@ def _reply_flex(reply_token: str, payloads: list[tuple[str, dict]]) -> None:
             logger.info("Flex reply sent (status %s)", resp.status)
     except urllib.error.HTTPError as exc:
         logger.error("LINE API error sending Flex: %s %s", exc.code, exc.read().decode())
+        raise
+
+
+def _reply_messages(reply_token: str, messages: list[dict]) -> None:
+    """Send up to 5 mixed messages (text, flex, etc.) in a single LINE reply."""
+    body = json.dumps(
+        {"replyToken": reply_token, "messages": messages},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/reply",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Reply sent (%d message(s), status %s)", len(messages), resp.status)
+    except urllib.error.HTTPError as exc:
+        logger.error("LINE API error: %s %s", exc.code, exc.read().decode())
         raise
 
 
@@ -314,11 +359,25 @@ def handle_text_message(event: MessageEvent):
     # Get Claude reply
     reply_text, order_confirmed = bot.get_reply(user_id, user_text)
 
-    # Attach Quick Reply buttons when Claude shows the order summary
+    messages = []
+
+    # Dine-in: prepend store info card with address, hours, and map link
+    if user_text.strip() == "內用":
+        messages.append({
+            "type": "flex",
+            "altText": "☀️ Sunny Cafe — 店內資訊",
+            "contents": flex_menu.build_dine_in_info_bubble(),
+        })
+
+    # Build text message and attach the right quick replies
+    text_msg: dict = {"type": "text", "text": reply_text}
     if _ORDER_SUMMARY_MARKER in reply_text:
-        _reply_text_raw(reply_token, reply_text, quick_reply=_CONFIRM_QUICK_REPLY)
-    else:
-        _reply_text_raw(reply_token, reply_text)
+        text_msg["quickReply"] = _CONFIRM_QUICK_REPLY
+    elif _is_fulfillment_question(reply_text):
+        text_msg["quickReply"] = _FULFILLMENT_QUICK_REPLY
+
+    messages.append(text_msg)
+    _reply_messages(reply_token, messages)
 
     # Print ticket asynchronously-ish (same process; printer errors don't block)
     if order_confirmed:

@@ -274,6 +274,114 @@ def build_item_quick_replies(category: str) -> dict:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def build_dine_in_info_bubble() -> dict:
+    """
+    Info card sent when a customer selects dine-in.
+    Shows address, hours, phone and a Google Maps button.
+    """
+    maps_url = f"https://maps.google.com/?q={RESTAURANT_INFO['address']}"
+    return {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": _HEADER_BG,
+            "paddingAll": "16px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "🏠 歡迎內用！",
+                    "color": _HEADER_TEXT,
+                    "weight": "bold",
+                    "size": "lg",
+                },
+                {
+                    "type": "text",
+                    "text": "Welcome, we'll have your order ready soon",
+                    "color": "#F5E6CC",
+                    "size": "xs",
+                    "margin": "xs",
+                    "wrap": True,
+                },
+            ],
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "16px",
+            "spacing": "md",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "spacing": "sm",
+                    "contents": [
+                        {"type": "text", "text": "📍", "size": "sm", "flex": 1, "gravity": "top"},
+                        {
+                            "type": "text",
+                            "text": RESTAURANT_INFO["address"],
+                            "size": "sm",
+                            "color": "#333333",
+                            "wrap": True,
+                            "flex": 5,
+                        },
+                    ],
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "spacing": "sm",
+                    "contents": [
+                        {"type": "text", "text": "🕐", "size": "sm", "flex": 1, "gravity": "top"},
+                        {
+                            "type": "text",
+                            "text": RESTAURANT_INFO["hours"],
+                            "size": "sm",
+                            "color": "#333333",
+                            "wrap": True,
+                            "flex": 5,
+                        },
+                    ],
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "spacing": "sm",
+                    "contents": [
+                        {"type": "text", "text": "📞", "size": "sm", "flex": 1},
+                        {
+                            "type": "text",
+                            "text": RESTAURANT_INFO["phone"],
+                            "size": "sm",
+                            "color": "#333333",
+                            "flex": 5,
+                        },
+                    ],
+                },
+            ],
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "10px",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": _BUTTON_COLOR,
+                    "height": "sm",
+                    "action": {
+                        "type": "uri",
+                        "label": "📍 開啟地圖 Google Maps",
+                        "uri": maps_url,
+                    },
+                }
+            ],
+        },
+    }
+
+
 def build_welcome_flex() -> dict:
     """
     Welcome Flex bubble sent when a user first adds the bot.
