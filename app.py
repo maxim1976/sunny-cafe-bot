@@ -241,9 +241,12 @@ def _cart_clear(user_id: str) -> None:
     _CARTS[user_id] = []
 
 
-def _cart_to_order_text(user_id: str) -> str:
+def _cart_to_order_text(user_id: str, lang: str = "zh") -> str:
     """Build the order string passed to Claude after cart confirmation."""
     cart = _CARTS[user_id]
+    if lang == "en":
+        items_str = ", ".join(f"{e['name']} x{e['qty']}" for e in cart)
+        return f"I'd like to order: {items_str}"
     items_str = "、".join(f"{e['zh_name']} x{e['qty']}" for e in cart)
     return f"我要點：{items_str}"
 
@@ -470,7 +473,7 @@ def handle_text_message(event: MessageEvent):
         if not cart:
             _reply_text_raw(reply_token, "Your cart is empty. Please select items first.\n購物車是空的，請先選擇品項。")
             return
-        order_text = _cart_to_order_text(user_id)
+        order_text = _cart_to_order_text(user_id, _get_lang(user_id))
         display_name = _get_line_display_name(user_id)
         reply_text, order_confirmed = bot.get_reply(user_id, order_text, display_name, _get_lang(user_id))
         text_msg: dict = {"type": "text", "text": reply_text}
