@@ -238,8 +238,7 @@ def save_store():
 @require_auth
 def orders():
     status_filter = request.args.get("status") or None
-    order_list = db.get_orders(status=status_filter, limit=100)
-    # Attach items to each order so the template can render them
+    order_list = [dict(o) for o in db.get_orders(status=status_filter, limit=100)]
     for o in order_list:
         o["items"] = db.get_order_items(o["id"])
     return render_template("admin/orders.html",
