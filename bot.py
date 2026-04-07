@@ -108,6 +108,44 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS carts (
+                user_id  TEXT    NOT NULL,
+                name     TEXT    NOT NULL,  -- English item name (key)
+                zh_name  TEXT    NOT NULL,
+                price    INTEGER NOT NULL,
+                qty      INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (user_id, name)
+            )
+            """
+        )
+
+
+def cart_add(user_id: str, name: str, zh_name: str, price: int) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO carts (user_id, name, zh_name, price, qty)
+            VALUES (?, ?, ?, ?, 1)
+            ON CONFLICT(user_id, name) DO UPDATE SET qty = qty + 1
+            """,
+            (user_id, name, zh_name, price),
+        )
+
+
+def cart_get(user_id: str) -> list[dict]:
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT name, zh_name, price, qty FROM carts WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+    return [{"name": r["name"], "zh_name": r["zh_name"], "price": r["price"], "qty": r["qty"]} for r in rows]
+
+
+def cart_clear(user_id: str) -> None:
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM carts WHERE user_id = ?", (user_id,))
 
 
 def _load_history(user_id: str) -> list[dict]:

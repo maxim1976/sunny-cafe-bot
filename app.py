@@ -208,9 +208,6 @@ def _get_lang(user_id: str) -> str:
 
 
 # ── Cart ──────────────────────────────────────────────────────────────────────
-# In-memory per-user cart: user_id → [{"name", "zh_name", "price", "qty"}, ...]
-_CARTS: dict[str, list[dict]] = defaultdict(list)
-
 # Reverse lookup: zh_name → {"name": str, "price": int}
 _ZH_TO_ITEM: dict[str, dict] = {
     MENU_ZH.get(name, name): {"name": name, "price": price}
@@ -224,26 +221,17 @@ def _cart_add(user_id: str, zh_name: str) -> bool:
     item_info = _ZH_TO_ITEM.get(zh_name)
     if not item_info:
         return False
-    for entry in _CARTS[user_id]:
-        if entry["zh_name"] == zh_name:
-            entry["qty"] += 1
-            return True
-    _CARTS[user_id].append({
-        "name": item_info["name"],
-        "zh_name": zh_name,
-        "price": item_info["price"],
-        "qty": 1,
-    })
+    bot.cart_add(user_id, item_info["name"], zh_name, item_info["price"])
     return True
 
 
 def _cart_clear(user_id: str) -> None:
-    _CARTS[user_id] = []
+    bot.cart_clear(user_id)
 
 
 def _cart_to_order_text(user_id: str, lang: str = "zh") -> str:
     """Build the order string passed to Claude after cart confirmation."""
-    cart = _CARTS[user_id]
+    cart = bot.cart_get(user_id)
     if lang == "en":
         items_str = ", ".join(f"{e['name']} x{e['qty']}" for e in cart)
         return f"I'd like to order: {items_str}"
@@ -435,7 +423,7 @@ def handle_text_message(event: MessageEvent):
     if user_text.startswith("我要點 "):
         zh_name = user_text[4:].strip()
         if _cart_add(user_id, zh_name):
-            cart = _CARTS[user_id]
+            cart = bot.cart_get(user_id)
             msg = {
                 "type": "flex",
                 "altText": f"Added: {zh_name}",
@@ -454,7 +442,7 @@ def handle_text_message(event: MessageEvent):
 
     # ── Cart: go to checkout — show cart + confirm/edit/cancel ────────────────
     if user_text == "結帳":
-        cart = _CARTS[user_id]
+        cart = bot.cart_get(user_id)
         if not cart:
             _reply_text_raw(reply_token, "Your cart is empty. Please select items first.\n購物車是空的，請先選擇品項。")
             return
@@ -469,7 +457,7 @@ def handle_text_message(event: MessageEvent):
 
     # ── Cart: confirmed → hand order to Claude for fulfillment ────────────────
     if user_text == "確認結帳":
-        cart = _CARTS[user_id]
+        cart = bot.cart_get(user_id)
         if not cart:
             _reply_text_raw(reply_token, "Your cart is empty. Please select items first.\n購物車是空的，請先選擇品項。")
             return
