@@ -48,8 +48,8 @@
         {% endif %}
       </td>
       <td class="small">
-        {% if o.items %}
-          {% for item in o.items %}
+        {% if o.order_items %}
+          {% for item in o.order_items %}
             {{ item.name_zh or item.name_en }} ×{{ item.qty }}<br>
           {% endfor %}
         {% else %}—{% endif %}

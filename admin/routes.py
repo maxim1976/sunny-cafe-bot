@@ -240,7 +240,7 @@ def orders():
     status_filter = request.args.get("status") or None
     order_list = [dict(o) for o in db.get_orders(status=status_filter, limit=100)]
     for o in order_list:
-        o["items"] = db.get_order_items(o["id"])
+        o["order_items"] = db.get_order_items(o["id"])
     return render_template("admin/orders.html",
                            orders=order_list, status_filter=status_filter)
 
