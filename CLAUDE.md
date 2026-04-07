@@ -2,31 +2,36 @@
 
 ## Project overview
 LINE ordering bot for a café in Hualien, Taiwan.
-Flask webhook on Railway, PostgreSQL database, Flex Message UI for ordering,
-Claude (claude-sonnet-4-6) used ONLY for FAQ / free-text questions.
-Admin web panel for owner to manage menu, discounts, posts, and store info.
+Flask webhook on Railway, PostgreSQL database, Flex Message UI for browsing,
+LIFF (LINE Front-end Framework) web form for checkout, optional Claude FAQ module.
+Admin web panel for the owner to manage everything without touching code.
 
 ## Stack
 | Layer | Technology |
 |-------|-----------|
 | Platform | LINE Messaging API (line-bot-sdk 3.11.0) |
 | Backend | Flask + Gunicorn on Railway |
-| Database | PostgreSQL (Railway managed) |
-| AI | Anthropic Claude API — FAQ only, not order flow |
+| Database | PostgreSQL (Railway managed plugin) |
+| Checkout UI | LIFF page (HTML form served from same Railway app) |
+| AI (optional) | Anthropic Claude API — FAQ only, toggled by env var |
 | Printer | Epson ESC/POS over TCP (optional, graceful fallback) |
 | Admin UI | Flask + Jinja2 + Bootstrap 5 (no build step) |
+| Landing page | Static HTML served from `/` on the same Railway app |
 
 ## Key files
 | File | Purpose |
 |------|---------|
-| `db.py` | All PostgreSQL access — connection pool, every query |
-| `flow.py` | Order state machine — drives structured ordering without Claude |
+| `db.py` | All PostgreSQL access — connection pool, every query lives here |
+| `flow.py` | Order state machine — cart → LIFF → confirm → done |
 | `flex_menu.py` | Builds all Flex Message JSON (reads live data from DB) |
 | `app.py` | Flask webhook + message routing |
-| `bot.py` | Claude API calls for FAQ only |
-| `printer.py` | Order ticket parsing + ESC/POS printing |
-| `admin/` | Flask blueprint — owner admin panel |
+| `bot.py` | Claude FAQ module — only loaded if CLAUDE_ENABLED=true |
+| `printer.py` | Order ticket formatting + ESC/POS printing |
+| `admin/` | Flask blueprint — owner admin panel at /admin/ |
+| `liff/` | LIFF checkout form at /liff/checkout (served by Flask) |
+| `landing/` | Static landing page at / |
 | `setup_richmenu.py` | One-time script to register LINE rich menu |
+| `images/` | Static images — uploaded once, served from /images/ |
 
 ## PostgreSQL schema
 
@@ -37,7 +42,7 @@ CREATE TABLE categories (
     name_en    TEXT    NOT NULL,
     name_zh    TEXT    NOT NULL,
     emoji      TEXT    DEFAULT '•',
-    image_file TEXT,                    -- served from /images/
+    image_file TEXT,                    -- filename in /images/
     sort_order INTEGER DEFAULT 0,
     available  BOOLEAN DEFAULT TRUE
 );
@@ -63,7 +68,7 @@ CREATE TABLE discounts (
 );
 
 -- ── Store info ───────────────────────────────────────────────────────────────
--- key/value pairs: address, phone, hours, wifi_password, etc.
+-- Editable key/value pairs: address, phone, hours, wifi_password, etc.
 CREATE TABLE store_info (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -83,9 +88,9 @@ CREATE TABLE orders (
     id            SERIAL PRIMARY KEY,
     user_id       TEXT    NOT NULL,
     display_name  TEXT,                 -- LINE profile name (greeting only)
-    customer_name TEXT,                 -- real name collected during order
-    phone         TEXT,
-    fulfillment   TEXT CHECK (fulfillment IN ('dine-in', 'takeaway', 'delivery')),
+    customer_name TEXT,                 -- collected via LIFF form
+    phone         TEXT,                 -- collected via LIFF form
+    fulfillment   TEXT CHECK (fulfillment IN ('dine-in','takeaway','delivery')),
     address       TEXT,                 -- delivery only
     pickup_time   TEXT,                 -- takeaway only
     total         INTEGER,
@@ -112,25 +117,13 @@ CREATE TABLE carts (
     PRIMARY KEY (user_id, item_id)
 );
 
--- ── Order state machine ───────────────────────────────────────────────────────
--- Drives structured data collection — replaces Claude for ordering
-CREATE TABLE order_sessions (
-    user_id    TEXT PRIMARY KEY,
-    state      TEXT NOT NULL DEFAULT 'idle',
-    order_id   INTEGER REFERENCES orders(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
--- Valid states: idle → cart → fulfillment → name → phone
---               → pickup_time (takeaway) | address (delivery) | confirm (dine-in)
---               → confirming → done
-
 -- ── User preferences ─────────────────────────────────────────────────────────
 CREATE TABLE user_prefs (
     user_id TEXT PRIMARY KEY,
     lang    TEXT DEFAULT 'zh'           -- 'zh' | 'en'
 );
 
--- ── Claude FAQ history ───────────────────────────────────────────────────────
+-- ── Claude FAQ history (only used when CLAUDE_ENABLED=true) ──────────────────
 CREATE TABLE messages (
     id         SERIAL PRIMARY KEY,
     user_id    TEXT NOT NULL,
@@ -145,76 +138,109 @@ CREATE INDEX ON messages(user_id);
 
 ```
 Incoming LINE message
-  ├─ Language toggle ("切換語言")        → toggle user_prefs.lang
-  ├─ Menu triggers ("menu", "菜單" …)   → show menu carousel (no Claude)
-  ├─ Category selected                  → show item picker (no Claude)
-  ├─ Item selected ("我要點 {zh}")       → cart_add → show cart bubble
-  ├─ "繼續點餐"                          → show menu carousel
-  ├─ "結帳"                             → show cart + Confirm/Edit/Cancel
-  ├─ "確認結帳"                          → create order row, set state=fulfillment
-  ├─ "重新點餐"                          → clear cart
-  ├─ "取消訂單"                          → clear cart + cancel order session
-  ├─ State machine (flow.py):
-  │   state=fulfillment  → save fulfillment → state=name
-  │   state=name         → save name        → state=phone
-  │   state=phone        → save phone       → state=address | pickup_time | confirming
-  │   state=address      → save address     → state=confirming
-  │   state=pickup_time  → save time        → state=confirming
-  │   state=confirming   → show summary + Confirm/Edit/Cancel quick replies
-  │   "確認" / "confirm" → finalize order, print ticket, clear session
-  └─ Everything else     → bot.get_reply() → Claude (FAQ only)
+  ├─ Language toggle ("切換語言")       → toggle user_prefs.lang
+  ├─ Menu triggers ("menu", "菜單" …)  → show menu carousel
+  ├─ Category selected                 → show item picker + quick replies
+  ├─ Item selected ("我要點 {zh}")      → cart_add → show cart bubble
+  ├─ "繼續點餐"                         → show menu carousel
+  ├─ "結帳"                            → show cart summary + open LIFF button
+  ├─ "重新點餐"                         → clear cart
+  ├─ "取消訂單"                         → clear cart, cancel message
+  ├─ "確認" / "confirm"                → finalize order, print ticket
+  └─ Everything else:
+      ├─ CLAUDE_ENABLED=true           → bot.get_reply() → Claude FAQ
+      └─ CLAUDE_ENABLED=false          → "Please use the menu to order"
 ```
 
-## Order flow (structured — no Claude)
+## LIFF checkout flow
 
-1. Customer browses menu carousel → taps category → taps item → cart bubble
-2. Can add more or go to checkout
-3. Checkout → cart summary → Confirm / Edit / Cancel
-4. Confirm → state machine takes over:
-   - Fulfillment quick replies (內用 / 外帶 / 外送)
-   - Type your real name
-   - Type your phone number
-   - Takeaway: type pickup time / Delivery: type address
-   - Show order summary Flex bubble → Confirm / Edit / Cancel
-5. Confirm → order saved to DB, ticket printed, cart cleared
+Replaces all chat-based data collection (name, phone, fulfillment, etc.)
 
-## Claude's role (FAQ only)
-- Only invoked when no state machine step is active AND message is free text
-- Has access to: menu (from DB), store info, active posts/disclaimers
-- Does NOT collect order data — never asks for name, phone, fulfillment
+1. Customer taps **✅ 結帳 / Checkout** → cart summary shown with a
+   **"Fill in details"** button that opens the LIFF URL
+2. LIFF page (`/liff/checkout?user_id=...`) loads inside LINE browser:
+   - Fulfillment selector (Dine-in / Takeaway / Delivery) — radio buttons
+   - Name field
+   - Phone field
+   - Pickup time (shown only if Takeaway)
+   - Address (shown only if Delivery)
+   - Active discount selector (if any)
+   - Order summary preview + total
+   - Submit button
+3. On submit → POST `/liff/submit` → saves order to DB →
+   sends LINE push message with order confirmation Flex bubble →
+   LIFF closes automatically
+4. Customer sees confirmation in chat with Confirm / Cancel quick replies
+5. Confirm → order status = confirmed, ticket printed
+
+Benefits over chat-based collection:
+- Single form, one submit — no back-and-forth
+- Proper validation (phone format, required fields)
+- Conditional fields (address only for delivery)
+- No state machine needed for data collection
+
+## Claude FAQ module (optional)
+- Enabled by setting `CLAUDE_ENABLED=true` in Railway env vars
+- Disabled by default — bot works fully without Anthropic API key
+- When enabled: handles free-text questions only (menu questions, hours, location)
 - System prompt built dynamically from DB (menu, store_info, active posts)
+- Never participates in ordering — no name/phone/fulfillment collection
+- Conversation history stored in `messages` table
 
-## Admin panel (admin/ blueprint)
-- Protected by HTTP Basic Auth (ADMIN_USER / ADMIN_PASSWORD env vars)
+## Admin panel (`/admin/` blueprint)
+- HTTP Basic Auth — `ADMIN_USER` / `ADMIN_PASSWORD` env vars
 - Routes:
-  - `/admin/` — dashboard: today's orders, summary stats
-  - `/admin/menu` — CRUD categories and items, toggle available
-  - `/admin/discounts` — create/edit/delete discounts
-  - `/admin/posts` — create/publish/archive disclaimers & announcements
-  - `/admin/store` — edit store_info key/value pairs
-  - `/admin/orders` — order history, update status
-- UI: Bootstrap 5 via CDN, server-rendered Jinja2 templates, no JS framework
+  - `/admin/` — dashboard: today's orders, counts by status
+  - `/admin/menu` — CRUD categories + items, toggle available on/off
+  - `/admin/discounts` — create/edit/deactivate discounts
+  - `/admin/posts` — write/publish/archive announcements & disclaimers
+  - `/admin/store` — edit store_info (address, hours, phone, etc.)
+  - `/admin/orders` — order history, update status (pending→ready→done)
+- UI: Bootstrap 5 CDN, server-rendered Jinja2, minimal JavaScript
+
+## Landing page (`/`)
+- Static HTML + CSS served by Flask from `landing/`
+- Café name, description, hours, address, Google Maps link
+- "Order on LINE" button → deep link to the bot
+- Optional: exterior/interior photos
 
 ## Flex Message conventions
 - Color palette: amber gold `#C8A165`, coffee brown `#6B4226`, cream `#E8D5B7`
-- Chinese primary label, English subtitle (always bilingual in card UI)
-- Quick reply button labels always bilingual: "✅ 確認 / Confirm"
-- Item picker buttons use user's language preference for label text
-- Images served from `/images/` on Railway (`BASE_URL` env var)
+- Chinese primary label, English subtitle — always bilingual in card UI
+- Quick reply button labels bilingual: "✅ 確認 / Confirm"
+- Item picker buttons use user_prefs.lang for label language
+- Images served from `/images/` (`BASE_URL` env var)
 - Always send Flex via raw `urllib.request` — never SDK serialization
+
+## Static images
+Stored in `/images/`, committed to git, never change at runtime.
+```
+images/
+  coffee.jpg          ← Coffee & Espresso category
+  non-coffee.jpg      ← Non-Coffee category
+  food.jpg            ← Food category
+  pastries.jpg        ← Pastries & Desserts category
+  addons.jpg          ← Add-ons category
+  exterior.jpg        ← Store street view
+  interior.jpg        ← Store interior
+  welcome.jpg         ← Hero / welcome image
+```
 
 ## Environment variables (Railway dashboard)
 ```
 LINE_CHANNEL_SECRET
 LINE_CHANNEL_ACCESS_TOKEN
-ANTHROPIC_API_KEY
-DATABASE_URL          # PostgreSQL URL — injected by Railway Postgres plugin
-BASE_URL              # e.g. https://web-production-22461.up.railway.app
-ADMIN_USER            # admin panel username
-ADMIN_PASSWORD        # admin panel password
-PRINTER_IP            # optional
-PRINTER_PORT          # optional, default 9100
-PORT                  # injected by Railway
+LINE_CHANNEL_ID           # needed for LIFF push messages
+LIFF_ID                   # from LINE Developers console
+DATABASE_URL              # injected by Railway Postgres plugin
+BASE_URL                  # e.g. https://web-production-22461.up.railway.app
+ADMIN_USER
+ADMIN_PASSWORD
+CLAUDE_ENABLED            # optional — 'true' to enable FAQ module
+ANTHROPIC_API_KEY         # optional — only needed if CLAUDE_ENABLED=true
+PRINTER_IP                # optional
+PRINTER_PORT              # optional, default 9100
+PORT                      # injected by Railway
 ```
 
 ## Deploy
@@ -227,15 +253,17 @@ Procfile: web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --t
 ```bash
 python -m venv .venv && .venv/Scripts/activate
 pip install -r requirements.txt
-# copy .env with real keys including local postgres or Railway postgres URL
+# copy .env with real keys
 python app.py
 # expose with: ngrok http 5000
+# register ngrok URL as LINE webhook + LIFF endpoint
 ```
 
 ## Rules
+- `db.py` is the ONLY file that touches the database — no raw SQL elsewhere
 - Menu data lives in PostgreSQL — never hardcode items or prices in Python
-- `db.py` is the only file that touches the database — no raw SQL elsewhere
-- State machine lives in `flow.py` — app.py only calls flow functions
-- Claude never participates in the order flow — only FAQ
-- Never commit `.env` — secrets in Railway environment only
-- Admin panel uses Basic Auth — never expose without ADMIN_USER/ADMIN_PASSWORD set
+- LIFF handles all structured data collection — no chat-based state machine for ordering
+- Claude never participates in ordering — FAQ only, and only if CLAUDE_ENABLED=true
+- Admin panel requires Basic Auth — never run without ADMIN_USER/ADMIN_PASSWORD
+- Never commit `.env` — all secrets in Railway environment
+```
