@@ -273,6 +273,160 @@ def build_item_quick_replies(category: str) -> dict:
     return {"items": quick_reply_items}
 
 
+# ── Cart UI ───────────────────────────────────────────────────────────────────
+
+def build_cart_bubble(cart_items: list[dict]) -> dict:
+    """
+    Flex bubble showing the current cart contents and running total.
+    cart_items: [{"name": str, "zh_name": str, "price": int, "qty": int}, ...]
+    """
+    total = sum(item["price"] * item["qty"] for item in cart_items)
+
+    rows: list[dict] = []
+    for i, item in enumerate(cart_items):
+        if i > 0:
+            rows.append({"type": "separator", "color": _SEPARATOR, "margin": "sm"})
+        subtotal = item["price"] * item["qty"]
+        rows.append({
+            "type": "box",
+            "layout": "horizontal",
+            "margin": "sm",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "flex": 3,
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": item["zh_name"],
+                            "size": "sm",
+                            "color": "#333333",
+                            "weight": "bold",
+                            "wrap": True,
+                        },
+                        {
+                            "type": "text",
+                            "text": f"NT${item['price']} × {item['qty']}",
+                            "size": "xxs",
+                            "color": "#AAAAAA",
+                        },
+                    ],
+                },
+                {
+                    "type": "text",
+                    "text": f"NT${subtotal}",
+                    "size": "sm",
+                    "color": _PRICE_COLOR,
+                    "align": "end",
+                    "flex": 2,
+                    "weight": "bold",
+                    "gravity": "center",
+                },
+            ],
+        })
+
+    rows.append({"type": "separator", "color": _SEPARATOR, "margin": "md"})
+    rows.append({
+        "type": "box",
+        "layout": "horizontal",
+        "margin": "md",
+        "contents": [
+            {
+                "type": "text",
+                "text": "合計 Total",
+                "size": "sm",
+                "weight": "bold",
+                "color": "#333333",
+                "flex": 3,
+            },
+            {
+                "type": "text",
+                "text": f"NT${total}",
+                "size": "sm",
+                "weight": "bold",
+                "color": _PRICE_COLOR,
+                "align": "end",
+                "flex": 2,
+            },
+        ],
+    })
+
+    return {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": _HEADER_BG,
+            "paddingAll": "16px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "🛒 您的購物車",
+                    "color": _HEADER_TEXT,
+                    "weight": "bold",
+                    "size": "md",
+                },
+                {
+                    "type": "text",
+                    "text": "Your Cart",
+                    "color": "#F5E6CC",
+                    "size": "xs",
+                    "margin": "xs",
+                },
+            ],
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "12px",
+            "spacing": "none",
+            "contents": rows,
+        },
+    }
+
+
+def build_cart_actions_quick_reply() -> dict:
+    """Quick replies shown after adding an item: Add More / Checkout / Cancel."""
+    return {
+        "items": [
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "➕ 繼續點餐", "text": "繼續點餐"},
+            },
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "✅ 去結帳", "text": "結帳"},
+            },
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "❌ 取消", "text": "取消訂單"},
+            },
+        ]
+    }
+
+
+def build_checkout_quick_reply() -> dict:
+    """Quick replies shown at checkout: Confirm / Edit / Cancel."""
+    return {
+        "items": [
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "✅ 確認 Confirm", "text": "確認結帳"},
+            },
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "✏️ 修改 Edit", "text": "重新點餐"},
+            },
+            {
+                "type": "action",
+                "action": {"type": "message", "label": "❌ 取消 Cancel", "text": "取消訂單"},
+            },
+        ]
+    }
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def build_dine_in_info_bubble() -> dict:

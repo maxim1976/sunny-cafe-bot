@@ -22,7 +22,7 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 import bot
 import printer
 import flex_menu
-from menu import MENU
+from menu import MENU, MENU_ZH
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -198,7 +198,48 @@ def _reply_menu(reply_token: str) -> None:
     ])
 
 
-# Keywords that trigger the visual menu (exact match, case-insensitive)
+# ── Cart ──────────────────────────────────────────────────────────────────────
+# In-memory per-user cart: user_id → [{"name", "zh_name", "price", "qty"}, ...]
+_CARTS: dict[str, list[dict]] = defaultdict(list)
+
+# Reverse lookup: zh_name → {"name": str, "price": int}
+_ZH_TO_ITEM: dict[str, dict] = {
+    MENU_ZH.get(name, name): {"name": name, "price": price}
+    for cat_items in MENU.values()
+    for name, price in cat_items.items()
+}
+
+
+def _cart_add(user_id: str, zh_name: str) -> bool:
+    """Add one of zh_name to the cart. Returns False if item not found."""
+    item_info = _ZH_TO_ITEM.get(zh_name)
+    if not item_info:
+        return False
+    for entry in _CARTS[user_id]:
+        if entry["zh_name"] == zh_name:
+            entry["qty"] += 1
+            return True
+    _CARTS[user_id].append({
+        "name": item_info["name"],
+        "zh_name": zh_name,
+        "price": item_info["price"],
+        "qty": 1,
+    })
+    return True
+
+
+def _cart_clear(user_id: str) -> None:
+    _CARTS[user_id] = []
+
+
+def _cart_to_order_text(user_id: str) -> str:
+    """Build the order string passed to Claude after cart confirmation."""
+    cart = _CARTS[user_id]
+    items_str = "、".join(f"{e['zh_name']} x{e['qty']}" for e in cart)
+    return f"我要點：{items_str}"
+
+
+# ── Keywords that trigger the visual menu (exact match, case-insensitive)
 _MENU_TRIGGERS = {
     "menu", "เมนู", "show menu", "see menu", "view menu", "our menu",
     "菜單", "看菜單", "點餐", "我想點", "我要點菜",
@@ -265,6 +306,7 @@ def _handle_confirmed_order(user_id: str) -> None:
 
     result = printer.print_order_ticket(
         customer_name=order_details["customer_name"],
+        phone=order_details["phone"],
         items=order_details["items"],
         total=order_details["total"],
         fulfillment=order_details["fulfillment"],
@@ -284,6 +326,17 @@ def _handle_confirmed_order(user_id: str) -> None:
             user_id,
             result["message"],
         )
+
+
+def _get_line_display_name(user_id: str) -> str | None:
+    """Fetch the user's LINE display name via the Messaging API."""
+    try:
+        with ApiClient(configuration) as api_client:
+            profile = MessagingApi(api_client).get_profile(user_id)
+            return profile.display_name
+    except Exception as exc:
+        logger.warning("Could not fetch LINE profile for %s: %s", user_id, exc)
+        return None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -356,8 +409,84 @@ def handle_text_message(event: MessageEvent):
         _reply_item_selection(reply_token, category)
         return
 
+    # ── Cart: item added via quick reply ("我要點 {zh_name}") ─────────────────
+    if user_text.startswith("我要點 "):
+        zh_name = user_text[4:].strip()
+        if _cart_add(user_id, zh_name):
+            cart = _CARTS[user_id]
+            msg = {
+                "type": "flex",
+                "altText": f"已加入：{zh_name}",
+                "contents": flex_menu.build_cart_bubble(cart),
+                "quickReply": flex_menu.build_cart_actions_quick_reply(),
+            }
+            _reply_messages(reply_token, [msg])
+        else:
+            _reply_text_raw(reply_token, f"找不到品項「{zh_name}」，請重新選擇。")
+        return
+
+    # ── Cart: add more items ──────────────────────────────────────────────────
+    if user_text == "繼續點餐":
+        _reply_menu(reply_token)
+        return
+
+    # ── Cart: go to checkout — show cart + confirm/edit/cancel ────────────────
+    if user_text == "結帳":
+        cart = _CARTS[user_id]
+        if not cart:
+            _reply_text_raw(reply_token, "購物車是空的，請先選擇品項。\nYour cart is empty. Please select items first.")
+            return
+        msg = {
+            "type": "flex",
+            "altText": "確認您的訂單 / Confirm your order",
+            "contents": flex_menu.build_cart_bubble(cart),
+            "quickReply": flex_menu.build_checkout_quick_reply(),
+        }
+        _reply_messages(reply_token, [msg])
+        return
+
+    # ── Cart: confirmed → hand order to Claude for fulfillment ────────────────
+    if user_text == "確認結帳":
+        cart = _CARTS[user_id]
+        if not cart:
+            _reply_text_raw(reply_token, "購物車是空的，請先選擇品項。\nYour cart is empty. Please select items first.")
+            return
+        order_text = _cart_to_order_text(user_id)
+        display_name = _get_line_display_name(user_id)
+        reply_text, order_confirmed = bot.get_reply(user_id, order_text, display_name)
+        text_msg: dict = {"type": "text", "text": reply_text}
+        if _ORDER_SUMMARY_MARKER in reply_text:
+            text_msg["quickReply"] = _CONFIRM_QUICK_REPLY
+        elif _is_fulfillment_question(reply_text):
+            text_msg["quickReply"] = _FULFILLMENT_QUICK_REPLY
+        _reply_messages(reply_token, [text_msg])
+        if order_confirmed:
+            _cart_clear(user_id)
+            _handle_confirmed_order(user_id)
+        return
+
+    # ── Cart: edit → clear cart and show menu ─────────────────────────────────
+    if user_text == "重新點餐":
+        _cart_clear(user_id)
+        _reply_menu(reply_token)
+        return
+
+    # ── Cart: cancel ──────────────────────────────────────────────────────────
+    if user_text == "取消訂單":
+        _cart_clear(user_id)
+        _reply_text_raw(
+            reply_token,
+            "訂單已取消。如需重新點餐，請點選下方菜單。\nOrder cancelled. Tap the menu button to start again.",
+        )
+        return
+
+    # Check if this is the user's first message before history is written
+    is_first_message = not bot.has_history(user_id)
+
+    display_name = _get_line_display_name(user_id)
+
     # Get Claude reply
-    reply_text, order_confirmed = bot.get_reply(user_id, user_text)
+    reply_text, order_confirmed = bot.get_reply(user_id, user_text, display_name)
 
     messages = []
 
@@ -377,10 +506,21 @@ def handle_text_message(event: MessageEvent):
         text_msg["quickReply"] = _FULFILLMENT_QUICK_REPLY
 
     messages.append(text_msg)
+
+    # First-time users get the menu carousel so they know what's available
+    # (especially desktop users who don't see the rich menu)
+    if is_first_message:
+        messages.append({
+            "type": "flex",
+            "altText": "☀️ Sunny Cafe Menu",
+            "contents": flex_menu.build_menu_carousel(),
+        })
+
     _reply_messages(reply_token, messages)
 
     # Print ticket asynchronously-ish (same process; printer errors don't block)
     if order_confirmed:
+        _cart_clear(user_id)
         logger.info("ORDER_CONFIRMED signal detected for user %s", user_id)
         _handle_confirmed_order(user_id)
 
