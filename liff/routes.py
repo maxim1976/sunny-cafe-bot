@@ -25,6 +25,16 @@ LINE_CHANNEL_ID = os.environ.get("LINE_CHANNEL_ID", "")
 @liff_bp.route("/liff/checkout")
 def checkout():
     user_id = request.args.get("user_id", "")
+
+    # LIFF wraps query params in liff.state when redirecting:
+    # /liff/checkout?liff.state=%3Fuser_id%3D{id}
+    if not user_id:
+        from urllib.parse import parse_qs, unquote
+        liff_state = request.args.get("liff.state", "")
+        if liff_state:
+            state_params = parse_qs(unquote(liff_state).lstrip("?"))
+            user_id = state_params.get("user_id", [""])[0]
+
     if not user_id:
         return "Missing user_id", 400
 
