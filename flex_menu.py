@@ -270,6 +270,15 @@ def build_item_quick_replies(category: str) -> dict:
                 "text": f"我要點 {zh_name}",
             },
         })
+    # Always allow going back to browse other categories
+    quick_reply_items.append({
+        "type": "action",
+        "action": {
+            "type": "message",
+            "label": "← 返回菜單",
+            "text": "menu",
+        },
+    })
     return {"items": quick_reply_items}
 
 

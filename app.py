@@ -198,6 +198,15 @@ def _reply_menu(reply_token: str) -> None:
     ])
 
 
+# ── Language preference ───────────────────────────────────────────────────────
+# Stores per-user language lock: "zh" (default) or "en"
+_LANG_PREF: dict[str, str] = {}
+
+
+def _get_lang(user_id: str) -> str:
+    return _LANG_PREF.get(user_id, "zh")
+
+
 # ── Cart ──────────────────────────────────────────────────────────────────────
 # In-memory per-user cart: user_id → [{"name", "zh_name", "price", "qty"}, ...]
 _CARTS: dict[str, list[dict]] = defaultdict(list)
@@ -403,6 +412,16 @@ def handle_text_message(event: MessageEvent):
         _reply_menu(reply_token)
         return
 
+    # ── Language switch ───────────────────────────────────────────────────────
+    if user_text in ("切換語言", "切換英文", "Switch to English", "English", "EN"):
+        if _get_lang(user_id) == "zh":
+            _LANG_PREF[user_id] = "en"
+            _reply_text_raw(reply_token, "Switched to English 🇬🇧 — I'll reply in English from now on.\nTap the language button again to switch back to Chinese.")
+        else:
+            _LANG_PREF[user_id] = "zh"
+            _reply_text_raw(reply_token, "已切換為中文 🇹🇼 — 之後將以中文回覆。")
+        return
+
     # ── Category selected → show item picker (never reaches Claude) ───────────
     category = _get_ordered_category(user_text)
     if category:
@@ -453,7 +472,7 @@ def handle_text_message(event: MessageEvent):
             return
         order_text = _cart_to_order_text(user_id)
         display_name = _get_line_display_name(user_id)
-        reply_text, order_confirmed = bot.get_reply(user_id, order_text, display_name)
+        reply_text, order_confirmed = bot.get_reply(user_id, order_text, display_name, _get_lang(user_id))
         text_msg: dict = {"type": "text", "text": reply_text}
         if _ORDER_SUMMARY_MARKER in reply_text:
             text_msg["quickReply"] = _CONFIRM_QUICK_REPLY
@@ -486,7 +505,7 @@ def handle_text_message(event: MessageEvent):
     display_name = _get_line_display_name(user_id)
 
     # Get Claude reply
-    reply_text, order_confirmed = bot.get_reply(user_id, user_text, display_name)
+    reply_text, order_confirmed = bot.get_reply(user_id, user_text, display_name, _get_lang(user_id))
 
     messages = []
 

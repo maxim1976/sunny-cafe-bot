@@ -39,24 +39,36 @@ def create_image():
         print("❌  Pillow not installed. Run: pip install pillow")
         raise
 
-    img = Image.new("RGB", (W, H), color=_AMBER)
+    img = Image.new("RGB", (W, H), color=_WHITE)
     draw = ImageDraw.Draw(img)
+
+    # Left half — amber (View Menu)
+    draw.rectangle([0, 0, W // 2 - 3, H], fill=_AMBER)
+    # Right half — dark coffee (Language switch)
+    draw.rectangle([W // 2 + 3, 0, W, H], fill=_COFFEE)
+    # Center divider
+    draw.rectangle([W // 2 - 3, 0, W // 2 + 3, H], fill=_WHITE)
 
     # Try Microsoft JhengHei (standard on Windows/Taiwan systems)
     try:
-        font_lg = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 64)
-        font_sm = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 40)
+        font_lg = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 56)
+        font_sm = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 36)
     except OSError:
         print("⚠️  JhengHei font not found — using default font (no Chinese chars)")
         font_lg = ImageFont.load_default()
         font_sm = font_lg
 
-    cx = W // 2
-    cy = H // 2
+    cx_left  = W // 4
+    cx_right = 3 * W // 4
+    cy       = H // 2
 
-    # Single full-width button label
-    draw.text((cx, cy - 35), "☕ 查看菜單", fill=_WHITE,      font=font_lg, anchor="mm")
-    draw.text((cx, cy + 45), "View Menu",   fill=_CREAM_DARK, font=font_sm, anchor="mm")
+    # Left button — View Menu
+    draw.text((cx_left, cy - 30), "☕ 查看菜單", fill=_WHITE,      font=font_lg, anchor="mm")
+    draw.text((cx_left, cy + 40), "View Menu",   fill=_CREAM_DARK, font=font_sm, anchor="mm")
+
+    # Right button — Language switch
+    draw.text((cx_right, cy - 30), "🌐 切換語言",  fill=_WHITE,      font=font_lg, anchor="mm")
+    draw.text((cx_right, cy + 40), "EN / 中文",   fill=_CREAM_SOFT, font=font_sm, anchor="mm")
 
     img.save(IMAGE_PATH, "JPEG", quality=95)
     print(f"✓ Image created: {IMAGE_PATH}")
@@ -87,8 +99,12 @@ def create_rich_menu() -> str:
         "chatBarText": "☀️ 菜單 Menu",
         "areas": [
             {
-                "bounds": {"x": 0, "y": 0, "width": W, "height": H},
+                "bounds": {"x": 0, "y": 0, "width": W // 2, "height": H},
                 "action": {"type": "message", "label": "查看菜單", "text": "menu"},
+            },
+            {
+                "bounds": {"x": W // 2, "y": 0, "width": W // 2, "height": H},
+                "action": {"type": "message", "label": "切換語言", "text": "切換語言"},
             },
         ],
     }
