@@ -152,6 +152,11 @@ def _get_item_id_from_trigger(text: str) -> int | None:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@app.route("/")
+def index():
+    return send_from_directory("landing", "index.html")
+
+
 @app.route("/images/<path:filename>")
 def serve_image(filename):
     return send_from_directory("images", filename)
