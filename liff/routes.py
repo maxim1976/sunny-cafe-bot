@@ -1,0 +1,159 @@
+"""
+liff/routes.py - LIFF checkout form served inside LINE browser.
+"""
+
+import json
+import logging
+import os
+import urllib.request
+
+from flask import Blueprint, request, jsonify, render_template
+
+import db
+import printer
+
+logger = logging.getLogger(__name__)
+
+liff_bp = Blueprint("liff", __name__, template_folder="templates")
+
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+LINE_CHANNEL_ID = os.environ.get("LINE_CHANNEL_ID", "")
+
+
+# ── LIFF checkout page ────────────────────────────────────────────────────────
+
+@liff_bp.route("/liff/checkout")
+def checkout():
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return "Missing user_id", 400
+
+    lang = db.get_lang(user_id)
+    cart = db.cart_get(user_id)
+    if not cart:
+        return render_template("liff/empty_cart.html", lang=lang)
+
+    total = sum(i["price"] * i["qty"] for i in cart)
+    discounts = db.get_active_discounts()
+    info = db.get_store_info()
+
+    return render_template(
+        "liff/checkout.html",
+        user_id=user_id,
+        lang=lang,
+        cart=cart,
+        total=total,
+        discounts=discounts,
+        info=info,
+        liff_id=os.getenv("LIFF_ID", ""),
+    )
+
+
+# ── LIFF form submission ──────────────────────────────────────────────────────
+
+@liff_bp.route("/liff/submit", methods=["POST"])
+def submit():
+    data = request.get_json(force=True)
+
+    user_id       = data.get("user_id", "")
+    display_name  = data.get("display_name", "")
+    customer_name = data.get("customer_name", "").strip()
+    phone         = data.get("phone", "").strip()
+    fulfillment   = data.get("fulfillment", "")
+    address       = data.get("address", "").strip() or None
+    pickup_time   = data.get("pickup_time", "").strip() or None
+    discount_id   = data.get("discount_id")
+    lang          = data.get("lang", "zh")
+
+    # Validate
+    if not all([user_id, customer_name, phone, fulfillment]):
+        return jsonify({"ok": False, "error": "Missing required fields"}), 400
+    if fulfillment == "delivery" and not address:
+        return jsonify({"ok": False, "error": "Address required for delivery"}), 400
+    if fulfillment == "takeaway" and not pickup_time:
+        return jsonify({"ok": False, "error": "Pickup time required for takeaway"}), 400
+
+    cart = db.cart_get(user_id)
+    if not cart:
+        return jsonify({"ok": False, "error": "Cart is empty"}), 400
+
+    # Calculate total + discount
+    subtotal = sum(i["price"] * i["qty"] for i in cart)
+    discount_amt = 0
+    if discount_id:
+        discount = next((d for d in db.get_active_discounts() if d["id"] == int(discount_id)), None)
+        if discount:
+            if discount["type"] == "percent":
+                discount_amt = int(subtotal * discount["value"] / 100)
+            else:
+                discount_amt = min(discount["value"], subtotal)
+    total = subtotal - discount_amt
+
+    # Save order
+    order = db.create_order(
+        user_id=user_id,
+        display_name=display_name,
+        customer_name=customer_name,
+        phone=phone,
+        fulfillment=fulfillment,
+        address=address,
+        pickup_time=pickup_time,
+        total=total,
+        discount_amt=discount_amt,
+    )
+    db.add_order_items(order["id"], [
+        {"name_en": i["name_en"], "name_zh": i["name_zh"],
+         "price": i["price"], "qty": i["qty"]}
+        for i in cart
+    ])
+    db.cart_clear(user_id)
+
+    # Print ticket
+    order_items = db.get_order_items(order["id"])
+    printer.print_order_ticket(
+        order_number=order["id"],
+        customer_name=customer_name,
+        phone=phone,
+        items=[{"name": i["name_en"], "qty": i["qty"], "price": i["price"]} for i in order_items],
+        total=total,
+        fulfillment=fulfillment,
+    )
+
+    # Send LINE confirmation push message
+    _send_confirmation(order, order_items, lang)
+
+    return jsonify({"ok": True, "order_id": order["id"]})
+
+
+def _send_confirmation(order: dict, items: list[dict], lang: str) -> None:
+    import flex_menu
+
+    confirm_bubble = flex_menu.build_order_confirmation_bubble(order, items, lang)
+    confirm_qr = flex_menu.build_confirm_quick_reply()
+
+    message = {
+        "type": "flex",
+        "altText": "Order Confirmation / 訂單確認",
+        "contents": confirm_bubble,
+        "quickReply": confirm_qr,
+    }
+
+    body = json.dumps({
+        "to": order["user_id"],
+        "messages": [message],
+    }, ensure_ascii=False).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/push",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Order confirmation sent to %s (status %s)", order["user_id"], resp.status)
+    except urllib.error.HTTPError as exc:
+        logger.error("Failed to send confirmation: %s %s", exc.code, exc.read().decode())

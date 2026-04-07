@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% block title %}Store Info — Sunny Cafe Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4">🏪 Store Information</h4>
+
+<div class="card shadow-sm" style="max-width:600px">
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.save_store') }}">
+      {% set fields = [
+        ('name',     'Cafe Name',     'text',  'Sunny Cafe'),
+        ('address',  'Address',       'text',  '花蓮縣花蓮市林森路 252 號'),
+        ('phone',    'Phone',         'tel',   '03-888-8888'),
+        ('hours',    'Opening Hours', 'text',  '每日 08:00–20:00'),
+        ('currency', 'Currency',      'text',  'TWD'),
+        ('wifi',     'WiFi Password', 'text',  ''),
+      ] %}
+      {% for key, label, type_, placeholder in fields %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold">{{ label }}</label>
+        <input class="form-control" type="{{ type_ }}" name="{{ key }}"
+               value="{{ info.get(key, '') }}" placeholder="{{ placeholder }}">
+      </div>
+      {% endfor %}
+      <button class="btn btn-primary w-100">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

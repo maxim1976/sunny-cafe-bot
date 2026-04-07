@@ -168,6 +168,7 @@ def print_order_ticket(
     items: list[dict],
     total: int,
     fulfillment: str,
+    order_number: int | None = None,
     currency: str = "THB",
     note: str = "",
 ) -> dict:
@@ -179,7 +180,8 @@ def print_order_ticket(
         order_number – int (even on failure, so it can be shown to the customer)
         message      – human-readable status string
     """
-    order_number = _next_order_number()
+    if order_number is None:
+        order_number = _next_order_number()
 
     ticket = build_ticket(
         order_number=order_number,

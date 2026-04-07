@@ -1,0 +1,62 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard — Sunny Cafe Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4">📊 Today's Dashboard</h4>
+
+<div class="row g-3 mb-4">
+  {% for status, label, icon, color in [
+    ('pending',   'Pending',   'clock',        'warning'),
+    ('ready',     'Ready',     'check-circle', 'primary'),
+    ('done',      'Done',      'bag-check',    'success'),
+    ('cancelled', 'Cancelled', 'x-circle',     'danger'),
+  ] %}
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <i class="bi bi-{{ icon }} fs-2 text-{{ color }}"></i>
+        <div class="fs-1 fw-bold">{{ counts.get(status, 0) }}</div>
+        <div class="text-muted small">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<h5 class="mb-3">Today's Orders</h5>
+{% if orders %}
+<div class="table-responsive">
+  <table class="table table-hover bg-white shadow-sm rounded">
+    <thead class="table-light">
+      <tr>
+        <th>#</th><th>Name</th><th>Phone</th><th>Type</th><th>Total</th><th>Time</th><th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for o in orders %}
+    <tr>
+      <td>{{ o.id }}</td>
+      <td>{{ o.customer_name or '—' }}</td>
+      <td>{{ o.phone or '—' }}</td>
+      <td>{{ o.fulfillment or '—' }}</td>
+      <td>NT${{ o.total or 0 }}</td>
+      <td class="text-muted small">{{ o.created_at.strftime('%H:%M') if o.created_at else '—' }}</td>
+      <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
+      <td>
+        <form method="post" action="{{ url_for('admin.update_order_status', order_id=o.id) }}" class="d-flex gap-1">
+          <select name="status" class="form-select form-select-sm" style="width:auto">
+            {% for s in ['pending','ready','done','cancelled'] %}
+            <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-secondary">Update</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-muted">No orders yet today.</div>
+{% endif %}
+{% endblock %}
