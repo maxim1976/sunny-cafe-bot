@@ -1,215 +1,349 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ 'en' if lang == 'en' else 'zh-TW' }}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if lang == 'en' %}Checkout{% else %}結帳{% endif %} — {{ info.get('name', 'Sunny Cafe') }}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
-  <style>
-    :root {
-      --amber:  #C8A165;
-      --coffee: #6B4226;
-      --cream:  #F5E6CC;
-    }
-    body { background: #faf7f2; font-family: -apple-system, sans-serif; }
-    .header { background: var(--amber); color: white; padding: 1rem 1.25rem; }
-    .header small { opacity: .8; }
-    .cart-item { border-bottom: 1px solid var(--cream); padding: .5rem 0; }
-    .total-row { font-weight: 700; color: var(--coffee); }
-    .btn-primary { background: var(--coffee); border-color: var(--coffee); }
-    .btn-primary:hover { background: #5a3620; border-color: #5a3620; }
-    .form-check-input:checked { background-color: var(--coffee); border-color: var(--coffee); }
-    .fulfillment-card { border: 2px solid #dee2e6; border-radius: .5rem; padding: .75rem; cursor: pointer; transition: border-color .2s; }
-    .fulfillment-card.selected { border-color: var(--coffee); background: var(--cream); }
-    #conditionalFields { display: none; }
-  </style>
-</head>
-<body>
-
-<div class="header">
-  <div class="fw-bold fs-5">🛒 {% if lang == 'en' %}Your Order{% else %}您的訂單{% endif %}</div>
-  <small>{{ info.get('name', 'Sunny Cafe') }}</small>
-</div>
-
-<div class="container py-3">
-
-  <!-- Cart summary -->
-  <div class="card mb-3 border-0 shadow-sm">
-    <div class="card-body">
-      {% for item in cart %}
-      <div class="cart-item d-flex justify-content-between">
-        <span>{{ item.name_en if lang == 'en' else item.name_zh }} ×{{ item.qty }}</span>
-        <span class="text-muted">NT${{ item.price * item.qty }}</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      {% if lang == 'en' %}Checkout{% else %}結帳{% endif %} — {{
+      info.get('name', 'Sunny Cafe') }}
+    </title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+    <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+    <style>
+      :root {
+        --amber: #c8a165;
+        --coffee: #6b4226;
+        --cream: #f5e6cc;
+      }
+      body {
+        background: #faf7f2;
+        font-family: -apple-system, sans-serif;
+      }
+      .header {
+        background: var(--amber);
+        color: white;
+        padding: 1rem 1.25rem;
+      }
+      .header small {
+        opacity: 0.8;
+      }
+      .cart-item {
+        border-bottom: 1px solid var(--cream);
+        padding: 0.5rem 0;
+      }
+      .total-row {
+        font-weight: 700;
+        color: var(--coffee);
+      }
+      .btn-primary {
+        background: var(--coffee);
+        border-color: var(--coffee);
+      }
+      .btn-primary:hover {
+        background: #5a3620;
+        border-color: #5a3620;
+      }
+      .form-check-input:checked {
+        background-color: var(--coffee);
+        border-color: var(--coffee);
+      }
+      .fulfillment-card {
+        border: 2px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .fulfillment-card.selected {
+        border-color: var(--coffee);
+        background: var(--cream);
+      }
+      #conditionalFields {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="fw-bold fs-5">
+        🛒 {% if lang == 'en' %}Your Order{% else %}您的訂單{% endif %}
       </div>
-      {% endfor %}
-
-      {% if discounts %}
-      <div class="mt-2">
-        <label class="form-label fw-semibold">{% if lang == 'en' %}Discount{% else %}折扣{% endif %}</label>
-        <select class="form-select form-select-sm" id="discountSelect">
-          <option value="">— {% if lang == 'en' %}No discount{% else %}不使用折扣{% endif %} —</option>
-          {% for d in discounts %}
-          <option value="{{ d.id }}" data-type="{{ d.type }}" data-value="{{ d.value }}">
-            {{ d.name }} ({% if d.type == 'percent' %}{{ d.value }}% off{% else %}NT${{ d.value }} off{% endif %})
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
-
-      <div class="d-flex justify-content-between total-row mt-3 pt-2 border-top">
-        <span>{% if lang == 'en' %}Total{% else %}合計{% endif %}</span>
-        <span id="totalDisplay">NT${{ total }}</span>
-      </div>
+      <small>{{ info.get('name', 'Sunny Cafe') }}</small>
     </div>
-  </div>
 
-  <!-- Form -->
-  <form id="checkoutForm">
-    <input type="hidden" name="user_id" value="{{ user_id }}">
-    <input type="hidden" name="lang" value="{{ lang }}">
+    <div class="container py-3">
+      <!-- Cart summary -->
+      <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-body">
+          {% for item in cart %}
+          <div class="cart-item d-flex justify-content-between">
+            <span
+              >{{ item.name_en if lang == 'en' else item.name_zh }} ×{{ item.qty
+              }}</span
+            >
+            <span class="text-muted">NT${{ item.price * item.qty }}</span>
+          </div>
+          {% endfor %} {% if discounts %}
+          <div class="mt-2">
+            <label class="form-label fw-semibold"
+              >{% if lang == 'en' %}Discount{% else %}折扣{% endif %}</label
+            >
+            <select class="form-select form-select-sm" id="discountSelect">
+              <option value="">
+                — {% if lang == 'en' %}No discount{% else %}不使用折扣{% endif
+                %} —
+              </option>
+              {% for d in discounts %}
+              <option
+                value="{{ d.id }}"
+                data-type="{{ d.type }}"
+                data-value="{{ d.value }}"
+              >
+                {{ d.name }} ({% if d.type == 'percent' %}{{ d.value }}% off{%
+                else %}NT${{ d.value }} off{% endif %})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
 
-    <!-- Fulfillment -->
-    <div class="mb-3">
-      <label class="form-label fw-semibold">{% if lang == 'en' %}How would you like your order?{% else %}取餐方式{% endif %}</label>
-      <div class="d-flex gap-2">
-        <div class="fulfillment-card flex-fill text-center" data-value="dine-in">
-          🏠<div class="small mt-1">{% if lang == 'en' %}Dine-in<br><span class="text-muted">內用</span>{% else %}內用<br><span class="text-muted">Dine-in</span>{% endif %}</div>
+          <div
+            class="d-flex justify-content-between total-row mt-3 pt-2 border-top"
+          >
+            <span>{% if lang == 'en' %}Total{% else %}合計{% endif %}</span>
+            <span id="totalDisplay">NT${{ total }}</span>
+          </div>
         </div>
-        <div class="fulfillment-card flex-fill text-center" data-value="takeaway">
-          🛍<div class="small mt-1">{% if lang == 'en' %}Takeaway<br><span class="text-muted">外帶</span>{% else %}外帶<br><span class="text-muted">Takeaway</span>{% endif %}</div>
+      </div>
+
+      <!-- Form -->
+      <form id="checkoutForm">
+        <input type="hidden" name="user_id" value="{{ user_id }}" />
+        <input type="hidden" name="lang" value="{{ lang }}" />
+
+        <!-- Fulfillment -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold"
+            >{% if lang == 'en' %}How would you like your order?{% else
+            %}取餐方式{% endif %}</label
+          >
+          <div class="d-flex gap-2">
+            <div
+              class="fulfillment-card flex-fill text-center"
+              data-value="dine-in"
+            >
+              🏠
+              <div class="small mt-1">
+                {% if lang == 'en' %}Dine-in<br /><span class="text-muted"
+                  >內用</span
+                >{% else %}內用<br /><span class="text-muted">Dine-in</span>{%
+                endif %}
+              </div>
+            </div>
+            <div
+              class="fulfillment-card flex-fill text-center"
+              data-value="takeaway"
+            >
+              🛍
+              <div class="small mt-1">
+                {% if lang == 'en' %}Takeaway<br /><span class="text-muted"
+                  >外帶</span
+                >{% else %}外帶<br /><span class="text-muted">Takeaway</span>{%
+                endif %}
+              </div>
+            </div>
+            <div
+              class="fulfillment-card flex-fill text-center"
+              data-value="delivery"
+            >
+              🛵
+              <div class="small mt-1">
+                {% if lang == 'en' %}Delivery<br /><span class="text-muted"
+                  >外送</span
+                >{% else %}外送<br /><span class="text-muted">Delivery</span>{%
+                endif %}
+              </div>
+            </div>
+          </div>
+          <input
+            type="hidden"
+            id="fulfillmentInput"
+            name="fulfillment"
+            required
+          />
+          <div
+            class="invalid-feedback d-block text-danger small"
+            id="fulfillmentError"
+            style="display: none !important"
+          ></div>
         </div>
-        <div class="fulfillment-card flex-fill text-center" data-value="delivery">
-          🛵<div class="small mt-1">{% if lang == 'en' %}Delivery<br><span class="text-muted">外送</span>{% else %}外送<br><span class="text-muted">Delivery</span>{% endif %}</div>
+
+        <!-- Conditional fields -->
+        <div id="conditionalFields">
+          <div id="pickupTimeField" class="mb-3" style="display: none">
+            <label class="form-label fw-semibold" id="pickupTimeLabel"
+              >{% if lang == 'en' %}Preferred time{% else %}預計時間{%
+              endif %}</label
+            >
+            <input
+              type="time"
+              class="form-control"
+              name="pickup_time"
+              id="pickupTime"
+            />
+          </div>
+          <div id="addressField" class="mb-3" style="display: none">
+            <label class="form-label fw-semibold"
+              >{% if lang == 'en' %}Delivery address{% else %}外送地址{% endif
+              %}</label
+            >
+            <textarea
+              class="form-control"
+              name="address"
+              id="addressInput"
+              rows="2"
+              placeholder="{% if lang == 'en' %}Full delivery address{% else %}請輸入完整地址{% endif %}"
+            ></textarea>
+          </div>
         </div>
-      </div>
-      <input type="hidden" id="fulfillmentInput" name="fulfillment" required>
-      <div class="invalid-feedback d-block text-danger small" id="fulfillmentError" style="display:none!important"></div>
+
+        <!-- Name -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold"
+            >{% if lang == 'en' %}Your name{% else %}姓名{% endif %}</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            name="customer_name"
+            required
+            placeholder="{% if lang == 'en' %}Real name for the ticket{% else %}取票用真實姓名{% endif %}"
+          />
+        </div>
+
+        <!-- Phone -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold"
+            >{% if lang == 'en' %}Phone number{% else %}電話號碼{% endif
+            %}</label
+          >
+          <input
+            type="tel"
+            class="form-control"
+            name="phone"
+            required
+            placeholder="{% if lang == 'en' %}e.g. 0912-345-678{% else %}例：0912-345-678{% endif %}"
+          />
+        </div>
+
+        <div id="errorMsg" class="alert alert-danger d-none small"></div>
+
+        <button
+          type="submit"
+          class="btn btn-primary w-100 py-2 fw-bold"
+          id="submitBtn"
+        >
+          {% if lang == 'en' %}Place Order{% else %}送出訂單{% endif %}
+        </button>
+      </form>
     </div>
 
-    <!-- Conditional fields -->
-    <div id="conditionalFields">
-      <div id="pickupTimeField" class="mb-3" style="display:none">
-        <label class="form-label fw-semibold">{% if lang == 'en' %}Preferred pickup time{% else %}取餐時間{% endif %}</label>
-        <input type="time" class="form-control" name="pickup_time" id="pickupTime">
-      </div>
-      <div id="addressField" class="mb-3" style="display:none">
-        <label class="form-label fw-semibold">{% if lang == 'en' %}Delivery address{% else %}外送地址{% endif %}</label>
-        <textarea class="form-control" name="address" id="addressInput" rows="2"
-          placeholder="{% if lang == 'en' %}Full delivery address{% else %}請輸入完整地址{% endif %}"></textarea>
-      </div>
-    </div>
+    <script>
+      const LANG = "{{ lang }}";
+      const SUBTOTAL = {{ total }};
+      let selectedFulfillment = null;
+      let discountAmt = 0;
 
-    <!-- Name -->
-    <div class="mb-3">
-      <label class="form-label fw-semibold">{% if lang == 'en' %}Your name{% else %}姓名{% endif %}</label>
-      <input type="text" class="form-control" name="customer_name" required
-        placeholder="{% if lang == 'en' %}Real name for the ticket{% else %}取票用真實姓名{% endif %}">
-    </div>
+      // LIFF init
+      liff.init({ liffId: "{{ liff_id }}" }).catch(console.error);
 
-    <!-- Phone -->
-    <div class="mb-3">
-      <label class="form-label fw-semibold">{% if lang == 'en' %}Phone number{% else %}電話號碼{% endif %}</label>
-      <input type="tel" class="form-control" name="phone" required
-        placeholder="{% if lang == 'en' %}e.g. 0912-345-678{% else %}例：0912-345-678{% endif %}">
-    </div>
+      // Fulfillment selection
+      document.querySelectorAll(".fulfillment-card").forEach(card => {
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".fulfillment-card").forEach(c => c.classList.remove("selected"));
+          card.classList.add("selected");
+          selectedFulfillment = card.dataset.value;
+          document.getElementById("fulfillmentInput").value = selectedFulfillment;
 
-    <div id="errorMsg" class="alert alert-danger d-none small"></div>
+          const pickupField = document.getElementById("pickupTimeField");
+          const addressField = document.getElementById("addressField");
+          const conditional = document.getElementById("conditionalFields");
+          const timeLabel = document.getElementById("pickupTimeLabel");
 
-    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="submitBtn">
-      {% if lang == 'en' %}Place Order{% else %}送出訂單{% endif %}
-    </button>
-  </form>
+          const showTime = selectedFulfillment === "takeaway" || selectedFulfillment === "dine-in";
+          pickupField.style.display  = showTime ? "block" : "none";
+          if (selectedFulfillment === "dine-in") {
+            timeLabel.textContent = LANG === "en" ? "Arrival time" : "到店時間";
+          } else {
+            timeLabel.textContent = LANG === "en" ? "Pickup time" : "取餐時間";
+          }
+          addressField.style.display = selectedFulfillment === "delivery" ? "block" : "none";
+          conditional.style.display  = "block";
+        });
+      });
 
-</div>
+      // Discount calculation
+      document.getElementById("discountSelect")?.addEventListener("change", e => {
+        const opt = e.target.selectedOptions[0];
+        const type = opt.dataset.type;
+        const val  = parseInt(opt.dataset.value) || 0;
+        if (!type) { discountAmt = 0; }
+        else if (type === "percent") { discountAmt = Math.floor(SUBTOTAL * val / 100); }
+        else { discountAmt = Math.min(val, SUBTOTAL); }
+        document.getElementById("totalDisplay").textContent = "NT$" + (SUBTOTAL - discountAmt);
+      });
 
-<script>
-const LANG = "{{ lang }}";
-const SUBTOTAL = {{ total }};
-let selectedFulfillment = null;
-let discountAmt = 0;
+      // Form submit
+      document.getElementById("checkoutForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const btn = document.getElementById("submitBtn");
+        const err = document.getElementById("errorMsg");
 
-// LIFF init
-liff.init({ liffId: "{{ liff_id }}" }).catch(console.error);
+        if (!selectedFulfillment) {
+          err.textContent = LANG === "en" ? "Please select a fulfillment method." : "請選擇取餐方式。";
+          err.classList.remove("d-none");
+          return;
+        }
 
-// Fulfillment selection
-document.querySelectorAll(".fulfillment-card").forEach(card => {
-  card.addEventListener("click", () => {
-    document.querySelectorAll(".fulfillment-card").forEach(c => c.classList.remove("selected"));
-    card.classList.add("selected");
-    selectedFulfillment = card.dataset.value;
-    document.getElementById("fulfillmentInput").value = selectedFulfillment;
+        btn.disabled = true;
+        btn.textContent = LANG === "en" ? "Submitting…" : "送出中…";
+        err.classList.add("d-none");
 
-    const pickupField = document.getElementById("pickupTimeField");
-    const addressField = document.getElementById("addressField");
-    const conditional = document.getElementById("conditionalFields");
+        const form = new FormData(e.target);
+        const profile = await liff.getProfile().catch(() => ({}));
+        const accessToken = liff.getAccessToken();
 
-    pickupField.style.display  = selectedFulfillment === "takeaway"  ? "block" : "none";
-    addressField.style.display = selectedFulfillment === "delivery" ? "block" : "none";
-    conditional.style.display  = "block";
-  });
-});
+        const payload = {
+          access_token:  accessToken,
+          display_name:  profile.displayName || "",
+          customer_name: form.get("customer_name"),
+          phone:         form.get("phone"),
+          fulfillment:   selectedFulfillment,
+          address:       form.get("address") || "",
+          pickup_time:   form.get("pickup_time") || "",
+          discount_id:   document.getElementById("discountSelect")?.value || "",
+          lang:          LANG,
+        };
 
-// Discount calculation
-document.getElementById("discountSelect")?.addEventListener("change", e => {
-  const opt = e.target.selectedOptions[0];
-  const type = opt.dataset.type;
-  const val  = parseInt(opt.dataset.value) || 0;
-  if (!type) { discountAmt = 0; }
-  else if (type === "percent") { discountAmt = Math.floor(SUBTOTAL * val / 100); }
-  else { discountAmt = Math.min(val, SUBTOTAL); }
-  document.getElementById("totalDisplay").textContent = "NT$" + (SUBTOTAL - discountAmt);
-});
+        const res = await fetch("/liff/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
 
-// Form submit
-document.getElementById("checkoutForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const btn = document.getElementById("submitBtn");
-  const err = document.getElementById("errorMsg");
-
-  if (!selectedFulfillment) {
-    err.textContent = LANG === "en" ? "Please select a fulfillment method." : "請選擇取餐方式。";
-    err.classList.remove("d-none");
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = LANG === "en" ? "Submitting…" : "送出中…";
-  err.classList.add("d-none");
-
-  const form = new FormData(e.target);
-  const profile = await liff.getProfile().catch(() => ({}));
-  const accessToken = liff.getAccessToken();
-
-  const payload = {
-    access_token:  accessToken,
-    display_name:  profile.displayName || "",
-    customer_name: form.get("customer_name"),
-    phone:         form.get("phone"),
-    fulfillment:   selectedFulfillment,
-    address:       form.get("address") || "",
-    pickup_time:   form.get("pickup_time") || "",
-    discount_id:   document.getElementById("discountSelect")?.value || "",
-    lang:          LANG,
-  };
-
-  const res = await fetch("/liff/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json();
-
-  if (json.ok) {
-    liff.closeWindow();
-  } else {
-    err.textContent = json.error || (LANG === "en" ? "Something went wrong." : "發生錯誤，請重試。");
-    err.classList.remove("d-none");
-    btn.disabled = false;
-    btn.textContent = LANG === "en" ? "Place Order" : "送出訂單";
-  }
-});
-</script>
-</body>
+        if (json.ok) {
+          liff.closeWindow();
+        } else {
+          err.textContent = json.error || (LANG === "en" ? "Something went wrong." : "發生錯誤，請重試。");
+          err.classList.remove("d-none");
+          btn.disabled = false;
+          btn.textContent = LANG === "en" ? "Place Order" : "送出訂單";
+        }
+      });
+    </script>
+  </body>
 </html>

@@ -128,8 +128,8 @@ def submit():
         return jsonify({"ok": False, "error": "Invalid fulfillment type"}), 400
     if fulfillment == "delivery" and not address:
         return jsonify({"ok": False, "error": "Address required for delivery"}), 400
-    if fulfillment == "takeaway" and not pickup_time:
-        return jsonify({"ok": False, "error": "Pickup time required for takeaway"}), 400
+    if fulfillment in ("dine-in", "takeaway") and not pickup_time:
+        return jsonify({"ok": False, "error": "Time is required"}), 400
 
     cart = db.cart_get(user_id)
     if not cart:
