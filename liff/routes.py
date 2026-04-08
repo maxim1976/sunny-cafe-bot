@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 liff_bp = Blueprint("liff", __name__, template_folder="templates")
 
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-LINE_CHANNEL_ID = os.environ.get("LINE_CHANNEL_ID", "")
+LIFF_CHANNEL_ID = os.environ.get("LIFF_CHANNEL_ID", "")
 
 
 def _verify_line_token(access_token: str) -> str | None:
@@ -29,8 +29,9 @@ def _verify_line_token(access_token: str) -> str | None:
         url = f"https://api.line.me/oauth2/v2.1/verify?access_token={urllib.parse.quote(access_token)}"
         with urllib.request.urlopen(url, timeout=5) as resp:
             data = json.loads(resp.read())
-        if str(data.get("client_id")) != LINE_CHANNEL_ID:
-            logger.warning("Token client_id mismatch: %s", data.get("client_id"))
+        if str(data.get("client_id")) != LIFF_CHANNEL_ID:
+            logger.warning("Token client_id mismatch: got %s, expected %s",
+                           data.get("client_id"), LIFF_CHANNEL_ID)
             return None
         if data.get("expires_in", 0) <= 0:
             return None
