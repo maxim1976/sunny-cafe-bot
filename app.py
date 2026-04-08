@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, abort, request, send_from_directory
+from flask_wtf.csrf import CSRFProtect
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import ApiClient, Configuration, MessagingApi
@@ -35,7 +36,12 @@ logger = logging.getLogger(__name__)
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
+_secret = os.getenv("FLASK_SECRET_KEY")
+if not _secret:
+    raise RuntimeError("FLASK_SECRET_KEY env var is required")
+app.secret_key = _secret
+csrf = CSRFProtect(app)
+csrf.exempt(liff_bp)       # LIFF submit is a JSON API, not a browser form
 app.register_blueprint(liff_bp)
 app.register_blueprint(admin_bp)
 
@@ -54,12 +60,23 @@ db.init_schema()
 MAX_MESSAGES   = int(os.getenv("RATE_LIMIT_MESSAGES", "10"))
 RATE_WINDOW    = int(os.getenv("RATE_LIMIT_WINDOW",   "60"))
 MAX_MSG_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH",  "500"))
+_RATE_STORE_MAX = 10_000  # max tracked users before forced cleanup
 _rate_store: dict = defaultdict(list)
+_rate_last_cleanup = 0.0
 
 
 def _is_rate_limited(user_id: str) -> bool:
+    global _rate_last_cleanup
     now = time.time()
     cutoff = now - RATE_WINDOW
+
+    # Periodic full cleanup: remove stale users every RATE_WINDOW seconds
+    if now - _rate_last_cleanup > RATE_WINDOW or len(_rate_store) > _RATE_STORE_MAX:
+        stale = [uid for uid, ts in _rate_store.items() if not ts or ts[-1] < cutoff]
+        for uid in stale:
+            del _rate_store[uid]
+        _rate_last_cleanup = now
+
     _rate_store[user_id] = [t for t in _rate_store[user_id] if t > cutoff]
     if len(_rate_store[user_id]) >= MAX_MESSAGES:
         return True
@@ -157,7 +174,7 @@ def index():
     return send_from_directory("landing", "index.html")
 
 
-@app.route("/images/<path:filename>")
+@app.route("/images/<filename>")
 def serve_image(filename):
     return send_from_directory("images", filename)
 
@@ -167,6 +184,7 @@ def health():
     return {"status": "ok"}, 200
 
 
+@csrf.exempt
 @app.route("/webhook", methods=["POST"])
 def webhook():
     signature = request.headers.get("X-Line-Signature", "")
@@ -198,7 +216,7 @@ def handle_message(event: MessageEvent):
     text       = event.message.text.strip()
     reply_token = event.reply_token
 
-    logger.info("Message from %s: %s", user_id, text[:80])
+    logger.info("Message from %s (len=%d)", user_id, len(text))
 
     # ── Rate limit ────────────────────────────────────────────────────────────
     if _is_rate_limited(user_id):

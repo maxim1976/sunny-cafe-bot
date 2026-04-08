@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>Business Card — 花蓮Vibe數位工作室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1a;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      padding: 48px 24px;
+      min-height: 100vh;
+    }
+
+    .label {
+      color: rgba(255,255,255,0.35);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: -20px;
+    }
+
+    /* ── Card base ── */
+    .card {
+      width: 90mm;
+      height: 55mm;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ══════════════════════════════════════
+       FRONT
+    ══════════════════════════════════════ */
+    .front {
+      background: #0d1117;
+      border: 1px solid rgba(200,160,87,0.25);
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 7mm 8mm;
+    }
+
+    .front-top {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .front-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #c8a057;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+    }
+
+    .front-sub {
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(200,160,87,0.55);
+      margin-top: 2px;
+    }
+
+    .front-divider {
+      width: 32px;
+      height: 1px;
+      background: rgba(200,160,87,0.4);
+      margin: 4px 0;
+    }
+
+    .front-tagline {
+      font-size: 7.5px;
+      color: rgba(232,226,216,0.7);
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+    }
+
+    .front-bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .front-contact-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 7px;
+      color: rgba(232,226,216,0.55);
+      letter-spacing: 0.04em;
+    }
+
+    .front-contact-row .icon {
+      font-size: 8px;
+      width: 10px;
+      text-align: center;
+    }
+
+    .front-contact-row .val {
+      color: rgba(232,226,216,0.85);
+    }
+
+    /* corner accent */
+    .front::after {
+      content: '';
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 18mm;
+      height: 18mm;
+      background: radial-gradient(ellipse at bottom right, rgba(200,160,87,0.12), transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ══════════════════════════════════════
+       BACK
+    ══════════════════════════════════════ */
+    .back {
+      background: #0d1117;
+      border: 1px solid rgba(200,160,87,0.25);
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .back-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 7mm 6mm 7mm 8mm;
+      gap: 5px;
+    }
+
+    .back-eyebrow {
+      font-size: 6px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(200,160,87,0.6);
+    }
+
+    .back-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #e8e2d8;
+      line-height: 1.2;
+    }
+
+    .back-heading em {
+      color: #c8a057;
+      font-style: italic;
+    }
+
+    .back-divider {
+      width: 28px;
+      height: 1px;
+      background: rgba(200,160,87,0.35);
+    }
+
+    .back-features {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      list-style: none;
+    }
+
+    .back-features li {
+      font-size: 6.8px;
+      color: rgba(232,226,216,0.65);
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      line-height: 1.4;
+    }
+
+    .back-features li::before {
+      content: '◆';
+      color: #c8a057;
+      font-size: 5px;
+      margin-top: 1.5px;
+      flex-shrink: 0;
+    }
+
+    .back-cta {
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #c8a057;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .back-right {
+      width: 30mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6mm 6mm 6mm 2mm;
+      border-left: 1px solid rgba(200,160,87,0.15);
+    }
+
+    .qr-frame {
+      width: 22mm;
+      height: 22mm;
+      background: white;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2mm;
+    }
+
+    .qr-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .qr-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      gap: 1px;
+    }
+
+    .back-qr-label {
+      font-size: 5.5px;
+      color: rgba(232,226,216,0.45);
+      text-align: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.5;
+    }
+
+    .back-qr-url {
+      font-size: 5px;
+      color: rgba(200,160,87,0.7);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── print ── */
+    @media print {
+      body {
+        background: white;
+        padding: 10mm;
+        gap: 8mm;
+      }
+      .label { display: none; }
+      .card {
+        break-inside: avoid;
+        box-shadow: none;
+      }
+      .front, .back {
+        border: 0.5pt solid #c8a057;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<p class="label">Front</p>
+
+<!-- ── FRONT ── -->
+<div class="card front">
+  <div class="front-top">
+    <div class="front-brand">花蓮Vibe數位工作室</div>
+    <div class="front-sub">Hualien Vibe Digital Studio</div>
+    <div class="front-divider"></div>
+    <div class="front-tagline">
+      LINE 點餐機器人 for 咖啡廳 &amp; 飲料店<br>
+      Ordering bots for cafés &amp; drink shops
+    </div>
+  </div>
+  <div class="front-bottom">
+    <div class="front-contact-row">
+      <span class="icon">🌐</span>
+      <span class="val">hualienbot.com</span>
+    </div>
+    <div class="front-contact-row">
+      <span class="icon">💬</span>
+      <span>LINE ID&nbsp;</span><span class="val">@your-line-id</span>
+    </div>
+    <div class="front-contact-row">
+      <span class="icon">📱</span>
+      <span class="val">09xx-xxx-xxx</span>
+    </div>
+  </div>
+</div>
+
+<p class="label">Back</p>
+
+<!-- ── BACK ── -->
+<div class="card back">
+  <div class="back-left">
+    <div class="back-eyebrow">How it works</div>
+    <div class="back-heading">顧客用 LINE<br>直接<em>點餐</em></div>
+    <div class="back-divider"></div>
+    <ul class="back-features">
+      <li>顧客掃 QR → LINE 點餐 → 廚房出單</li>
+      <li>老闆用手機管菜單、折扣、公告</li>
+      <li>中英雙語，外國客人也能點</li>
+      <li>無需 App，LINE 內完成所有操作</li>
+    </ul>
+    <div class="back-cta">掃描體驗 demo →</div>
+  </div>
+  <div class="back-right">
+    <div class="qr-frame">
+      <!-- Replace src with your actual QR code image -->
+      <img src="qr.png" alt="QR Code" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+      <div class="qr-placeholder" style="display:none">
+        <!-- Decorative placeholder dots -->
+        <svg viewBox="0 0 7 7" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+          <rect x="0" y="0" width="3" height="3" fill="#222"/>
+          <rect x="4" y="0" width="3" height="3" fill="#222"/>
+          <rect x="0" y="4" width="3" height="3" fill="#222"/>
+          <rect x="1" y="1" width="1" height="1" fill="white"/>
+          <rect x="5" y="1" width="1" height="1" fill="white"/>
+          <rect x="1" y="5" width="1" height="1" fill="white"/>
+          <rect x="3" y="2" width="1" height="1" fill="#222"/>
+          <rect x="2" y="3" width="3" height="1" fill="#222"/>
+          <rect x="4" y="4" width="1" height="1" fill="#222"/>
+          <rect x="5" y="5" width="2" height="2" fill="#222"/>
+          <rect x="3" y="5" width="1" height="1" fill="#222"/>
+        </svg>
+      </div>
+    </div>
+    <div class="back-qr-label">掃描體驗<br>Live Demo</div>
+    <div class="back-qr-url">hualienbot.com</div>
+  </div>
+</div>
+
+<p style="color:rgba(255,255,255,0.2); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; margin-top: 8px;">
+  Ctrl+P to print · Set paper to A4 · Scale to fit
+</p>
+
+</body>
+</html>

@@ -180,9 +180,10 @@ document.getElementById("checkoutForm").addEventListener("submit", async e => {
 
   const form = new FormData(e.target);
   const profile = await liff.getProfile().catch(() => ({}));
+  const accessToken = liff.getAccessToken();
 
   const payload = {
-    user_id:       "{{ user_id }}",
+    access_token:  accessToken,
     display_name:  profile.displayName || "",
     customer_name: form.get("customer_name"),
     phone:         form.get("phone"),

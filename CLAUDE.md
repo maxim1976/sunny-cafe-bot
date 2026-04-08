@@ -11,6 +11,7 @@ Admin web panel for the owner to manage everything without touching code.
 |-------|-----------|
 | Platform | LINE Messaging API (line-bot-sdk 3.11.0) |
 | Backend | Flask + Gunicorn on Railway |
+| CSRF | Flask-WTF CSRFProtect (admin forms) |
 | Database | PostgreSQL (Railway managed plugin) |
 | Checkout UI | LIFF page (HTML form served from same Railway app) |
 | AI (optional) | Anthropic Claude API — FAQ only, toggled by env var |
@@ -167,7 +168,9 @@ Replaces all chat-based data collection (name, phone, fulfillment, etc.)
    - Active discount selector (if any)
    - Order summary preview + total
    - Submit button
-3. On submit → POST `/liff/submit` → saves order to DB →
+3. On submit → JS sends `liff.getAccessToken()` + form data →
+   POST `/liff/submit` → server verifies token via LINE API →
+   extracts real `user_id` → saves order to DB →
    sends LINE push message with order confirmation Flex bubble →
    LIFF closes automatically
 4. Customer sees confirmation in chat with Confirm / Cancel quick replies
@@ -188,7 +191,8 @@ Benefits over chat-based collection:
 - Conversation history stored in `messages` table
 
 ## Admin panel (`/admin/` blueprint)
-- HTTP Basic Auth — `ADMIN_USER` / `ADMIN_PASSWORD` env vars
+- HTTP Basic Auth — `ADMIN_USER` / `ADMIN_PASSWORD` env vars (required, no fallback)
+- CSRF protection on all POST forms via Flask-WTF (token auto-injected in base.html)
 - Routes:
   - `/admin/` — dashboard: today's orders, counts by status
   - `/admin/menu` — CRUD categories + items, toggle available on/off
@@ -230,12 +234,13 @@ images/
 ```
 LINE_CHANNEL_SECRET
 LINE_CHANNEL_ACCESS_TOKEN
-LINE_CHANNEL_ID           # needed for LIFF push messages
+LINE_CHANNEL_ID           # needed for LIFF token verification + push messages
 LIFF_ID                   # from LINE Developers console
 DATABASE_URL              # injected by Railway Postgres plugin
 BASE_URL                  # e.g. https://web-production-22461.up.railway.app
-ADMIN_USER
-ADMIN_PASSWORD
+FLASK_SECRET_KEY          # required — stable secret for sessions + CSRF
+ADMIN_USER                # required — app crashes without it
+ADMIN_PASSWORD            # required — app crashes without it
 CLAUDE_ENABLED            # optional — 'true' to enable FAQ module
 ANTHROPIC_API_KEY         # optional — only needed if CLAUDE_ENABLED=true
 PRINTER_IP                # optional
@@ -259,6 +264,16 @@ python app.py
 # register ngrok URL as LINE webhook + LIFF endpoint
 ```
 
+## Security
+- **CSRF**: Flask-WTF `CSRFProtect` enabled globally; admin forms auto-inject tokens;
+  LINE webhook and LIFF blueprint are exempt (own auth mechanisms)
+- **LIFF auth**: `/liff/submit` verifies LINE access token server-side via
+  `oauth2/v2.1/verify` + `/v2/profile` — never trust client-supplied `user_id`
+- **Admin auth**: HTTP Basic Auth, credentials required via `os.environ[]` (no fallback)
+- **Input validation**: phone regex `^[\d\-\+\(\)\s]{7,20}$`, fulfillment whitelist
+- **Rate limiting**: per-user with periodic cleanup, max 10K tracked users
+- **PII**: user message content is not logged — only user_id and message length
+
 ## Rules
 - `db.py` is the ONLY file that touches the database — no raw SQL elsewhere
 - Menu data lives in PostgreSQL — never hardcode items or prices in Python
@@ -266,4 +281,5 @@ python app.py
 - Claude never participates in ordering — FAQ only, and only if CLAUDE_ENABLED=true
 - Admin panel requires Basic Auth — never run without ADMIN_USER/ADMIN_PASSWORD
 - Never commit `.env` — all secrets in Railway environment
+- `FLASK_SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASSWORD` must be set — app crashes without them
 ```

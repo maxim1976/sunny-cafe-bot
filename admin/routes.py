@@ -14,8 +14,8 @@ import db
 admin_bp = Blueprint("admin", __name__, template_folder="templates",
                      url_prefix="/admin")
 
-ADMIN_USER     = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme")
+ADMIN_USER     = os.environ["ADMIN_USER"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 
 # ── Basic Auth ────────────────────────────────────────────────────────────────
