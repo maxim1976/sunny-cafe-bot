@@ -9,8 +9,10 @@ import time
 import urllib.error
 import urllib.request
 from collections import defaultdict
+from datetime import timezone, timedelta
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from flask import Flask, abort, request, send_from_directory
@@ -41,12 +43,25 @@ if not _secret:
     raise RuntimeError("FLASK_SECRET_KEY env var is required")
 app.secret_key = _secret
 csrf = CSRFProtect(app)
-csrf.exempt(liff_bp)       # LIFF submit is a JSON API, not a browser form
+csrf.exempt(liff_bp)  # LIFF submit is a JSON API, not a browser form
 app.register_blueprint(liff_bp)
 app.register_blueprint(admin_bp)
 
+# ── Taipei timezone filter ────────────────────────────────────────────────────
+_TAIPEI_TZ = timezone(timedelta(hours=8))
+
+
+@app.template_filter("taipei_time")
+def taipei_time_filter(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_TAIPEI_TZ)
+
+
 # ── LINE SDK setup ────────────────────────────────────────────────────────────
-LINE_CHANNEL_SECRET      = os.environ["LINE_CHANNEL_SECRET"]
+LINE_CHANNEL_SECRET = os.environ["LINE_CHANNEL_SECRET"]
 LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 
 configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
@@ -57,9 +72,9 @@ db.init_pool()
 db.init_schema()
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
-MAX_MESSAGES   = int(os.getenv("RATE_LIMIT_MESSAGES", "10"))
-RATE_WINDOW    = int(os.getenv("RATE_LIMIT_WINDOW",   "60"))
-MAX_MSG_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH",  "500"))
+MAX_MESSAGES = int(os.getenv("RATE_LIMIT_MESSAGES", "10"))
+RATE_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+MAX_MSG_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "500"))
 _RATE_STORE_MAX = 10_000  # max tracked users before forced cleanup
 _rate_store: dict = defaultdict(list)
 _rate_last_cleanup = 0.0
@@ -85,6 +100,7 @@ def _is_rate_limited(user_id: str) -> bool:
 
 
 # ── LINE API helpers ──────────────────────────────────────────────────────────
+
 
 def _send(reply_token: str, messages: list[dict]) -> None:
     body = json.dumps(
@@ -115,8 +131,9 @@ def _text(reply_token: str, text: str, quick_reply: dict | None = None) -> None:
     _send(reply_token, [msg])
 
 
-def _flex(reply_token: str, alt_text: str, contents: dict,
-          quick_reply: dict | None = None) -> None:
+def _flex(
+    reply_token: str, alt_text: str, contents: dict, quick_reply: dict | None = None
+) -> None:
     msg: dict = {"type": "flex", "altText": alt_text, "contents": contents}
     if quick_reply:
         msg["quickReply"] = quick_reply
@@ -135,8 +152,16 @@ def _get_display_name(user_id: str) -> str | None:
 
 # ── Menu triggers ─────────────────────────────────────────────────────────────
 _MENU_TRIGGERS = {
-    "menu", "菜單", "show menu", "view menu", "see menu", "our menu",
-    "看菜單", "點餐", "我想點", "เมนู",
+    "menu",
+    "菜單",
+    "show menu",
+    "view menu",
+    "see menu",
+    "our menu",
+    "看菜單",
+    "點餐",
+    "我想點",
+    "เมนู",
 }
 
 
@@ -146,16 +171,18 @@ def _is_menu_request(text: str) -> bool:
 
 # ── Category triggers ─────────────────────────────────────────────────────────
 
+
 def _get_category_from_trigger(text: str) -> dict | None:
     """Return category dict if text matches 'I'd like to order from {name_en}'."""
     if not text.startswith("I'd like to order from "):
         return None
-    name_en = text[len("I'd like to order from "):]
+    name_en = text[len("I'd like to order from ") :]
     cats = db.get_categories(available_only=True)
     return next((c for c in cats if c["name_en"] == name_en), None)
 
 
 # ── Item trigger ──────────────────────────────────────────────────────────────
+
 
 def _get_item_id_from_trigger(text: str) -> int | None:
     """Return item_id if text matches 'ADD:{id}'."""
@@ -168,6 +195,7 @@ def _get_item_id_from_trigger(text: str) -> int | None:
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @app.route("/")
 def index():
@@ -199,28 +227,41 @@ def webhook():
 
 # ── Event handlers ────────────────────────────────────────────────────────────
 
+
 @handler.add(FollowEvent)
 def handle_follow(event: FollowEvent):
-    _send(event.reply_token, [
-        {"type": "flex", "altText": "歡迎來到 Sunny Cafe！",
-         "contents": flex_menu.build_welcome_flex()},
-        {"type": "flex", "altText": "☀️ Sunny Cafe Menu",
-         "contents": flex_menu.build_menu_carousel()},
-    ])
+    _send(
+        event.reply_token,
+        [
+            {
+                "type": "flex",
+                "altText": "歡迎來到 Sunny Cafe！",
+                "contents": flex_menu.build_welcome_flex(),
+            },
+            {
+                "type": "flex",
+                "altText": "☀️ Sunny Cafe Menu",
+                "contents": flex_menu.build_menu_carousel(),
+            },
+        ],
+    )
     logger.info("Follow event — welcome sent")
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
-    user_id    = event.source.user_id
-    text       = event.message.text.strip()
+    user_id = event.source.user_id
+    text = event.message.text.strip()
     reply_token = event.reply_token
 
     logger.info("Message from %s (len=%d)", user_id, len(text))
 
     # ── Rate limit ────────────────────────────────────────────────────────────
     if _is_rate_limited(user_id):
-        _text(reply_token, "請稍慢一點，一分鐘後再試。\nPlease slow down — try again in a minute.")
+        _text(
+            reply_token,
+            "請稍慢一點，一分鐘後再試。\nPlease slow down — try again in a minute.",
+        )
         return
 
     if len(text) > MAX_MSG_LENGTH:
@@ -230,31 +271,52 @@ def handle_message(event: MessageEvent):
     lang = db.get_lang(user_id)
 
     # ── Language toggle ───────────────────────────────────────────────────────
-    if text in ("切換語言", "Switch to English", "English", "EN", "切換英文",
-                "Switch to Chinese", "中文", "ZH", "切換中文"):
+    if text in (
+        "切換語言",
+        "Switch to English",
+        "English",
+        "EN",
+        "切換英文",
+        "Switch to Chinese",
+        "中文",
+        "ZH",
+        "切換中文",
+    ):
         new_lang = "en" if lang == "zh" else "zh"
         db.set_lang(user_id, new_lang)
         if new_lang == "en":
-            _text(reply_token, "Switched to English 🇬🇧\nTap the language button again to switch back.")
+            _text(
+                reply_token,
+                "Switched to English 🇬🇧\nTap the language button again to switch back.",
+            )
         else:
             _text(reply_token, "已切換為中文 🇹🇼")
         return
 
     # ── Menu ──────────────────────────────────────────────────────────────────
     if _is_menu_request(text):
-        _send(reply_token, [
-            {"type": "flex", "altText": "☀️ Sunny Cafe Menu",
-             "contents": flex_menu.build_menu_header_bubble()},
-            {"type": "flex", "altText": "瀏覽菜單 Browse menu →",
-             "contents": flex_menu.build_menu_carousel()},
-        ])
+        _send(
+            reply_token,
+            [
+                {
+                    "type": "flex",
+                    "altText": "☀️ Sunny Cafe Menu",
+                    "contents": flex_menu.build_menu_header_bubble(),
+                },
+                {
+                    "type": "flex",
+                    "altText": "瀏覽菜單 Browse menu →",
+                    "contents": flex_menu.build_menu_carousel(),
+                },
+            ],
+        )
         return
 
     # ── Category selected ─────────────────────────────────────────────────────
     cat = _get_category_from_trigger(text)
     if cat:
         bubble = flex_menu.build_item_selection_bubble(cat)
-        qr     = flex_menu.build_item_quick_replies(cat, lang)
+        qr = flex_menu.build_item_quick_replies(cat, lang)
         msg = {
             "type": "flex",
             "altText": f"{cat['name_zh']} — 請選擇品項",
@@ -284,10 +346,16 @@ def handle_message(event: MessageEvent):
 
     # ── Cart: add more ────────────────────────────────────────────────────────
     if text == "繼續點餐":
-        _send(reply_token, [
-            {"type": "flex", "altText": "☀️ Sunny Cafe Menu",
-             "contents": flex_menu.build_menu_carousel()},
-        ])
+        _send(
+            reply_token,
+            [
+                {
+                    "type": "flex",
+                    "altText": "☀️ Sunny Cafe Menu",
+                    "contents": flex_menu.build_menu_carousel(),
+                },
+            ],
+        )
         return
 
     # ── Cart: checkout → open LIFF ────────────────────────────────────────────
@@ -303,15 +371,19 @@ def handle_message(event: MessageEvent):
     # ── Cart: clear / cancel ──────────────────────────────────────────────────
     if text in ("重新點餐", "取消訂單"):
         db.cart_clear(user_id)
-        _text(reply_token,
-              "Order cancelled. Tap the menu to start again.\n訂單已取消。")
+        _text(
+            reply_token, "Order cancelled. Tap the menu to start again.\n訂單已取消。"
+        )
         return
 
     # ── Order confirmed (from push message quick reply) ───────────────────────
     if text.lower() in ("確認", "confirm"):
         # Order was already saved by LIFF submit — just acknowledge
         if lang == "en":
-            _text(reply_token, "Thank you! Your order is confirmed. We'll have it ready soon! ☀️")
+            _text(
+                reply_token,
+                "Thank you! Your order is confirmed. We'll have it ready soon! ☀️",
+            )
         else:
             _text(reply_token, "感謝您的訂單！我們將盡快為您準備。☀️")
         return
@@ -323,11 +395,13 @@ def handle_message(event: MessageEvent):
 
     messages: list[dict] = [{"type": "text", "text": reply}]
     if is_first:
-        messages.append({
-            "type": "flex",
-            "altText": "☀️ Sunny Cafe Menu",
-            "contents": flex_menu.build_menu_carousel(),
-        })
+        messages.append(
+            {
+                "type": "flex",
+                "altText": "☀️ Sunny Cafe Menu",
+                "contents": flex_menu.build_menu_carousel(),
+            }
+        )
     _send(reply_token, messages)
 
 

@@ -1,13 +1,14 @@
-{% extends "admin/base.html" %}
-{% block title %}Orders — Sunny Cafe Admin{% endblock %}
-{% block content %}
+{% extends "admin/base.html" %} {% block title %}Orders — Sunny Cafe Admin{%
+endblock %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h4 class="mb-0">📋 Order History</h4>
   <div class="d-flex gap-2">
     {% for s, label in [('', 'All'), ('pending', 'Pending'), ('ready', 'Ready'),
-                        ('done', 'Done'), ('cancelled', 'Cancelled')] %}
-    <a href="{{ url_for('admin.orders') }}{% if s %}?status={{ s }}{% endif %}"
-       class="btn btn-sm {% if status_filter == s or (not status_filter and not s) %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+    ('done', 'Done'), ('cancelled', 'Cancelled')] %}
+    <a
+      href="{{ url_for('admin.orders') }}{% if s %}?status={{ s }}{% endif %}"
+      class="btn btn-sm {% if status_filter == s or (not status_filter and not s) %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+    >
       {{ label }}
     </a>
     {% endfor %}
@@ -31,60 +32,78 @@
       </tr>
     </thead>
     <tbody>
-    {% for o in orders %}
-    <tr>
-      <td class="fw-bold">#{{ "%04d"|format(o.id) }}</td>
-      <td>{{ o.customer_name or '—' }}</td>
-      <td>{{ o.phone or '—' }}</td>
-      <td>
-        {% if o.fulfillment == 'dine-in' %}
+      {% for o in orders %}
+      <tr>
+        <td class="fw-bold">#{{ "%04d"|format(o.id) }}</td>
+        <td>{{ o.customer_name or '—' }}</td>
+        <td>{{ o.phone or '—' }}</td>
+        <td>
+          {% if o.fulfillment == 'dine-in' %}
           <span class="badge bg-success">內用</span>
-        {% elif o.fulfillment == 'takeaway' %}
+          {% elif o.fulfillment == 'takeaway' %}
           <span class="badge bg-warning text-dark">外帶</span>
-        {% elif o.fulfillment == 'delivery' %}
+          {% elif o.fulfillment == 'delivery' %}
           <span class="badge bg-info text-dark">外送</span>
-        {% else %}
-          {{ o.fulfillment or '—' }}
-        {% endif %}
-      </td>
-      <td class="small">
-        {% if o.order_items %}
-          {% for item in o.order_items %}
-            {{ item.name_zh or item.name_en }} ×{{ item.qty }}<br>
-          {% endfor %}
-        {% else %}—{% endif %}
-      </td>
-      <td>NT${{ o.total or 0 }}</td>
-      <td class="text-muted small">{{ o.created_at.strftime('%m/%d %H:%M') if o.created_at else '—' }}</td>
-      <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
-      <td>
-        <form method="post" action="{{ url_for('admin.update_order_status', order_id=o.id) }}" class="d-flex gap-1">
-          <select name="status" class="form-select form-select-sm" style="width:auto">
-            {% for s in ['pending','ready','done','cancelled'] %}
-            <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
-          <button class="btn btn-sm btn-outline-secondary">✓</button>
-        </form>
-      </td>
-    </tr>
-    {% if o.address %}
-    <tr class="table-light">
-      <td colspan="9" class="small text-muted py-1 ps-4">
-        📍 {{ o.address }}
-        {% if o.pickup_time %} &nbsp;·&nbsp; ⏰ {{ o.pickup_time }}{% endif %}
-      </td>
-    </tr>
-    {% elif o.pickup_time %}
-    <tr class="table-light">
-      <td colspan="9" class="small text-muted py-1 ps-4">⏰ Pickup: {{ o.pickup_time }}</td>
-    </tr>
-    {% endif %}
-    {% endfor %}
+          {% else %} {{ o.fulfillment or '—' }} {% endif %}
+        </td>
+        <td class="small">
+          {% if o.order_items %} {% for item in o.order_items %} {{ item.name_zh
+          or item.name_en }} ×{{ item.qty }}<br />
+          {% endfor %} {% else %}—{% endif %}
+        </td>
+        <td>NT${{ o.total or 0 }}</td>
+        <td class="text-muted small">
+          {{ (o.created_at | taipei_time).strftime('%m/%d %H:%M') if
+          o.created_at else '—' }}
+        </td>
+        <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
+        <td>
+          <form
+            method="post"
+            action="{{ url_for('admin.update_order_status', order_id=o.id) }}"
+            class="d-flex gap-1"
+          >
+            <select
+              name="status"
+              class="form-select form-select-sm"
+              style="width: auto"
+            >
+              {% for s in ['pending','ready','done','cancelled'] %}
+              <option
+                value="{{ s }}"
+                {%
+                if
+                o.status=""
+                ="s"
+                %}selected{%
+                endif
+                %}
+              >
+                {{ s }}
+              </option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-secondary">✓</button>
+          </form>
+        </td>
+      </tr>
+      {% if o.address %}
+      <tr class="table-light">
+        <td colspan="9" class="small text-muted py-1 ps-4">
+          📍 {{ o.address }} {% if o.pickup_time %} &nbsp;·&nbsp; ⏰ {{
+          o.pickup_time }}{% endif %}
+        </td>
+      </tr>
+      {% elif o.pickup_time %}
+      <tr class="table-light">
+        <td colspan="9" class="small text-muted py-1 ps-4">
+          ⏰ Pickup: {{ o.pickup_time }}
+        </td>
+      </tr>
+      {% endif %} {% endfor %}
     </tbody>
   </table>
 </div>
 {% else %}
 <p class="text-muted">No orders found.</p>
-{% endif %}
-{% endblock %}
+{% endif %} {% endblock %}

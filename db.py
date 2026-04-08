@@ -50,6 +50,7 @@ def _cur(conn):
 
 # ── Schema init ───────────────────────────────────────────────────────────────
 
+
 def init_schema() -> None:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute("""
@@ -157,6 +158,7 @@ def init_schema() -> None:
 
 # ── Categories ────────────────────────────────────────────────────────────────
 
+
 def get_categories(available_only: bool = True) -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
         q = "SELECT * FROM categories"
@@ -173,8 +175,13 @@ def get_category(category_id: int) -> dict | None:
         return cur.fetchone()
 
 
-def create_category(name_en: str, name_zh: str, emoji: str = "•",
-                    image_file: str | None = None, sort_order: int = 0) -> dict:
+def create_category(
+    name_en: str,
+    name_zh: str,
+    emoji: str = "•",
+    image_file: str | None = None,
+    sort_order: int = 0,
+) -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             """INSERT INTO categories (name_en, name_zh, emoji, image_file, sort_order)
@@ -205,6 +212,7 @@ def delete_category(category_id: int) -> None:
 
 # ── Items ─────────────────────────────────────────────────────────────────────
 
+
 def get_items(category_id: int, available_only: bool = True) -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
         q = "SELECT * FROM items WHERE category_id = %s"
@@ -232,8 +240,9 @@ def get_all_items(available_only: bool = True) -> list[dict]:
         return cur.fetchall()
 
 
-def create_item(category_id: int, name_en: str, name_zh: str,
-                price: int, sort_order: int = 0) -> dict:
+def create_item(
+    category_id: int, name_en: str, name_zh: str, price: int, sort_order: int = 0
+) -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             """INSERT INTO items (category_id, name_en, name_zh, price, sort_order)
@@ -263,6 +272,7 @@ def delete_item(item_id: int) -> None:
 
 
 # ── Cart ──────────────────────────────────────────────────────────────────────
+
 
 def cart_get(user_id: str) -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
@@ -301,18 +311,35 @@ def cart_total(user_id: str) -> int:
 
 # ── Orders ────────────────────────────────────────────────────────────────────
 
-def create_order(user_id: str, display_name: str | None,
-                 customer_name: str, phone: str, fulfillment: str,
-                 address: str | None, pickup_time: str | None,
-                 total: int, discount_amt: int = 0) -> dict:
+
+def create_order(
+    user_id: str,
+    display_name: str | None,
+    customer_name: str,
+    phone: str,
+    fulfillment: str,
+    address: str | None,
+    pickup_time: str | None,
+    total: int,
+    discount_amt: int = 0,
+) -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             """INSERT INTO orders
                (user_id, display_name, customer_name, phone, fulfillment,
                 address, pickup_time, total, discount_amt)
                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-            (user_id, display_name, customer_name, phone, fulfillment,
-             address, pickup_time, total, discount_amt),
+            (
+                user_id,
+                display_name,
+                customer_name,
+                phone,
+                fulfillment,
+                address,
+                pickup_time,
+                total,
+                discount_amt,
+            ),
         )
         return cur.fetchone()
 
@@ -323,7 +350,13 @@ def add_order_items(order_id: int, items: list[dict]) -> None:
             cur.execute(
                 """INSERT INTO order_items (order_id, name_en, name_zh, price, qty)
                    VALUES (%s, %s, %s, %s, %s)""",
-                (order_id, item["name_en"], item["name_zh"], item["price"], item["qty"]),
+                (
+                    order_id,
+                    item["name_en"],
+                    item["name_zh"],
+                    item["price"],
+                    item["qty"],
+                ),
             )
 
 
@@ -361,13 +394,14 @@ def get_today_orders() -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             """SELECT * FROM orders
-               WHERE created_at >= NOW()::date
+               WHERE created_at AT TIME ZONE 'Asia/Taipei' >= (NOW() AT TIME ZONE 'Asia/Taipei')::date
                ORDER BY created_at DESC""",
         )
         return cur.fetchall()
 
 
 # ── Discounts ─────────────────────────────────────────────────────────────────
+
 
 def get_active_discounts() -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
@@ -386,8 +420,7 @@ def get_all_discounts() -> list[dict]:
         return cur.fetchall()
 
 
-def create_discount(name: str, type_: str, value: int,
-                    expires_at=None) -> dict:
+def create_discount(name: str, type_: str, value: int, expires_at=None) -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             """INSERT INTO discounts (name, type, value, expires_at)
@@ -417,6 +450,7 @@ def delete_discount(discount_id: int) -> None:
 
 # ── Store info ────────────────────────────────────────────────────────────────
 
+
 def get_store_info() -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute("SELECT key, value FROM store_info")
@@ -439,11 +473,10 @@ def set_store_info_bulk(data: dict) -> None:
 
 # ── Posts ─────────────────────────────────────────────────────────────────────
 
+
 def get_active_posts() -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
-        cur.execute(
-            "SELECT * FROM posts WHERE active = TRUE ORDER BY created_at DESC"
-        )
+        cur.execute("SELECT * FROM posts WHERE active = TRUE ORDER BY created_at DESC")
         return cur.fetchall()
 
 
@@ -481,6 +514,7 @@ def delete_post(post_id: int) -> None:
 
 
 # ── User preferences ──────────────────────────────────────────────────────────
+
 
 def get_lang(user_id: str) -> str:
     with _conn() as conn, _cur(conn) as cur:
@@ -531,7 +565,5 @@ def save_message(user_id: str, role: str, content: str) -> None:
 
 def has_history(user_id: str) -> bool:
     with _conn() as conn, _cur(conn) as cur:
-        cur.execute(
-            "SELECT 1 FROM messages WHERE user_id = %s LIMIT 1", (user_id,)
-        )
+        cur.execute("SELECT 1 FROM messages WHERE user_id = %s LIMIT 1", (user_id,))
         return cur.fetchone() is not None
