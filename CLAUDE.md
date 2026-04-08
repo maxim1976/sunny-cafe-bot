@@ -1,38 +1,41 @@
 # Sunny Cafe Bot — Claude Code Guide
 
 ## Project overview
+
 LINE ordering bot for a café in Hualien, Taiwan.
 Flask webhook on Railway, PostgreSQL database, Flex Message UI for browsing,
 LIFF (LINE Front-end Framework) web form for checkout, optional Claude FAQ module.
 Admin web panel for the owner to manage everything without touching code.
 
 ## Stack
-| Layer | Technology |
-|-------|-----------|
-| Platform | LINE Messaging API (line-bot-sdk 3.11.0) |
-| Backend | Flask + Gunicorn on Railway |
-| CSRF | Flask-WTF CSRFProtect (admin forms) |
-| Database | PostgreSQL (Railway managed plugin) |
-| Checkout UI | LIFF page (HTML form served from same Railway app) |
-| AI (optional) | Anthropic Claude API — FAQ only, toggled by env var |
-| Printer | Epson ESC/POS over TCP (optional, graceful fallback) |
-| Admin UI | Flask + Jinja2 + Bootstrap 5 (no build step) |
-| Landing page | Static HTML served from `/` on the same Railway app |
+
+| Layer         | Technology                                           |
+| ------------- | ---------------------------------------------------- |
+| Platform      | LINE Messaging API (line-bot-sdk 3.11.0)             |
+| Backend       | Flask + Gunicorn on Railway                          |
+| CSRF          | Flask-WTF CSRFProtect (admin forms)                  |
+| Database      | PostgreSQL (Railway managed plugin)                  |
+| Checkout UI   | LIFF page (HTML form served from same Railway app)   |
+| AI (optional) | Anthropic Claude API — FAQ only, toggled by env var  |
+| Printer       | Epson ESC/POS over TCP (optional, graceful fallback) |
+| Admin UI      | Flask + Jinja2 + Bootstrap 5 (no build step)         |
+| Landing page  | Static HTML served from `/` on the same Railway app  |
 
 ## Key files
-| File | Purpose |
-|------|---------|
-| `db.py` | All PostgreSQL access — connection pool, every query lives here |
-| `flow.py` | Order state machine — cart → LIFF → confirm → done |
-| `flex_menu.py` | Builds all Flex Message JSON (reads live data from DB) |
-| `app.py` | Flask webhook + message routing |
-| `bot.py` | Claude FAQ module — only loaded if CLAUDE_ENABLED=true |
-| `printer.py` | Order ticket formatting + ESC/POS printing |
-| `admin/` | Flask blueprint — owner admin panel at /admin/ |
-| `liff/` | LIFF checkout form at /liff/checkout (served by Flask) |
-| `landing/` | Static landing page at / |
-| `setup_richmenu.py` | One-time script to register LINE rich menu |
-| `images/` | Static images — uploaded once, served from /images/ |
+
+| File                | Purpose                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `db.py`             | All PostgreSQL access — connection pool, every query lives here |
+| `flow.py`           | Order state machine — cart → LIFF → confirm → done              |
+| `flex_menu.py`      | Builds all Flex Message JSON (reads live data from DB)          |
+| `app.py`            | Flask webhook + message routing                                 |
+| `bot.py`            | Claude FAQ module — only loaded if CLAUDE_ENABLED=true          |
+| `printer.py`        | Order ticket formatting + ESC/POS printing                      |
+| `admin/`            | Flask blueprint — owner admin panel at /admin/                  |
+| `liff/`             | LIFF checkout form at /liff/checkout (served by Flask)          |
+| `landing/`          | Static landing page at /                                        |
+| `setup_richmenu.py` | One-time script to register LINE rich menu                      |
+| `images/`           | Static images — uploaded once, served from /images/             |
 
 ## PostgreSQL schema
 
@@ -177,12 +180,14 @@ Replaces all chat-based data collection (name, phone, fulfillment, etc.)
 5. Confirm → order status = confirmed, ticket printed
 
 Benefits over chat-based collection:
+
 - Single form, one submit — no back-and-forth
 - Proper validation (phone format, required fields)
 - Conditional fields (address only for delivery)
 - No state machine needed for data collection
 
 ## Claude FAQ module (optional)
+
 - Enabled by setting `CLAUDE_ENABLED=true` in Railway env vars
 - Disabled by default — bot works fully without Anthropic API key
 - When enabled: handles free-text questions only (menu questions, hours, location)
@@ -191,6 +196,7 @@ Benefits over chat-based collection:
 - Conversation history stored in `messages` table
 
 ## Admin panel (`/admin/` blueprint)
+
 - HTTP Basic Auth — `ADMIN_USER` / `ADMIN_PASSWORD` env vars (required, no fallback)
 - CSRF protection on all POST forms via Flask-WTF (token auto-injected in base.html)
 - Routes:
@@ -203,12 +209,14 @@ Benefits over chat-based collection:
 - UI: Bootstrap 5 CDN, server-rendered Jinja2, minimal JavaScript
 
 ## Landing page (`/`)
+
 - Static HTML + CSS served by Flask from `landing/`
 - Café name, description, hours, address, Google Maps link
 - "Order on LINE" button → deep link to the bot
 - Optional: exterior/interior photos
 
 ## Flex Message conventions
+
 - Color palette: amber gold `#C8A165`, coffee brown `#6B4226`, cream `#E8D5B7`
 - Chinese primary label, English subtitle — always bilingual in card UI
 - Quick reply button labels bilingual: "✅ 確認 / Confirm"
@@ -217,7 +225,9 @@ Benefits over chat-based collection:
 - Always send Flex via raw `urllib.request` — never SDK serialization
 
 ## Static images
+
 Stored in `/images/`, committed to git, never change at runtime.
+
 ```
 images/
   coffee.jpg          ← Coffee & Espresso category
@@ -231,6 +241,7 @@ images/
 ```
 
 ## Environment variables (Railway dashboard)
+
 ```
 LINE_CHANNEL_SECRET
 LINE_CHANNEL_ACCESS_TOKEN
@@ -249,12 +260,14 @@ PORT                      # injected by Railway
 ```
 
 ## Deploy
+
 ```
 Push to main → Railway auto-deploys
 Procfile: web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60
 ```
 
 ## Local dev
+
 ```bash
 python -m venv .venv && .venv/Scripts/activate
 pip install -r requirements.txt
@@ -265,6 +278,7 @@ python app.py
 ```
 
 ## Security
+
 - **CSRF**: Flask-WTF `CSRFProtect` enabled globally; admin forms auto-inject tokens;
   LINE webhook and LIFF blueprint are exempt (own auth mechanisms)
 - **LIFF auth**: `/liff/submit` verifies LINE access token server-side via
@@ -275,6 +289,7 @@ python app.py
 - **PII**: user message content is not logged — only user_id and message length
 
 ## Rules
+
 - `db.py` is the ONLY file that touches the database — no raw SQL elsewhere
 - Menu data lives in PostgreSQL — never hardcode items or prices in Python
 - LIFF handles all structured data collection — no chat-based state machine for ordering
@@ -282,4 +297,7 @@ python app.py
 - Admin panel requires Basic Auth — never run without ADMIN_USER/ADMIN_PASSWORD
 - Never commit `.env` — all secrets in Railway environment
 - `FLASK_SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASSWORD` must be set — app crashes without them
+
+```
+
 ```

@@ -6,19 +6,28 @@ Protected by HTTP Basic Auth (ADMIN_USER / ADMIN_PASSWORD env vars).
 import functools
 import os
 
-from flask import (Blueprint, render_template, request, redirect,
-                   url_for, flash, Response)
+from flask import (
+    Blueprint,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    Response,
+)
 
 import db
 
-admin_bp = Blueprint("admin", __name__, template_folder="templates",
-                     url_prefix="/admin")
+admin_bp = Blueprint(
+    "admin", __name__, template_folder="templates", url_prefix="/admin"
+)
 
-ADMIN_USER     = os.environ["ADMIN_USER"]
+ADMIN_USER = os.environ["ADMIN_USER"]
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 
 # ── Basic Auth ────────────────────────────────────────────────────────────────
+
 
 def _check_auth(username: str, password: str) -> bool:
     return username == ADMIN_USER and password == ADMIN_PASSWORD
@@ -35,30 +44,37 @@ def require_auth(f):
                 {"WWW-Authenticate": 'Basic realm="Sunny Cafe Admin"'},
             )
         return f(*args, **kwargs)
+
     return decorated
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/")
 @require_auth
 def dashboard():
-    today  = db.get_today_orders()
-    counts = {s: sum(1 for o in today if o["status"] == s)
-              for s in ("pending", "ready", "done", "cancelled")}
+    today = db.get_today_orders()
+    counts = {
+        s: sum(1 for o in today if o["status"] == s)
+        for s in ("pending", "ready", "done", "cancelled")
+    }
     return render_template("admin/dashboard.html", orders=today, counts=counts)
 
 
 # ── Menu ──────────────────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/menu")
 @require_auth
 def menu():
     categories = db.get_categories(available_only=False)
-    items_by_cat = {cat["id"]: db.get_items(cat["id"], available_only=False)
-                    for cat in categories}
-    return render_template("admin/menu.html",
-                           categories=categories, items_by_cat=items_by_cat)
+    items_by_cat = {
+        cat["id"]: db.get_items(cat["id"], available_only=False) for cat in categories
+    }
+    return render_template(
+        "admin/menu.html", categories=categories, items_by_cat=items_by_cat
+    )
 
 
 @admin_bp.route("/menu/category/add", methods=["POST"])
@@ -138,11 +154,11 @@ def delete_item(item_id):
 
 # ── Discounts ─────────────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/discounts")
 @require_auth
 def discounts():
-    return render_template("admin/discounts.html",
-                           discounts=db.get_all_discounts())
+    return render_template("admin/discounts.html", discounts=db.get_all_discounts())
 
 
 @admin_bp.route("/discounts/add", methods=["POST"])
@@ -178,6 +194,7 @@ def delete_discount(discount_id):
 
 
 # ── Posts ─────────────────────────────────────────────────────────────────────
+
 
 @admin_bp.route("/posts")
 @require_auth
@@ -217,6 +234,7 @@ def delete_post(post_id):
 
 # ── Store info ────────────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/store")
 @require_auth
 def store():
@@ -234,6 +252,7 @@ def save_store():
 
 # ── Orders ────────────────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/orders")
 @require_auth
 def orders():
@@ -241,8 +260,9 @@ def orders():
     order_list = [dict(o) for o in db.get_orders(status=status_filter, limit=100)]
     for o in order_list:
         o["order_items"] = db.get_order_items(o["id"])
-    return render_template("admin/orders.html",
-                           orders=order_list, status_filter=status_filter)
+    return render_template(
+        "admin/orders.html", orders=order_list, status_filter=status_filter
+    )
 
 
 @admin_bp.route("/orders/<int:order_id>/status", methods=["POST"])

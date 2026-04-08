@@ -30,8 +30,11 @@ def _verify_line_token(access_token: str) -> str | None:
         with urllib.request.urlopen(url, timeout=5) as resp:
             data = json.loads(resp.read())
         if str(data.get("client_id")) != LIFF_CHANNEL_ID:
-            logger.warning("Token client_id mismatch: got %s, expected %s",
-                           data.get("client_id"), LIFF_CHANNEL_ID)
+            logger.warning(
+                "Token client_id mismatch: got %s, expected %s",
+                data.get("client_id"),
+                LIFF_CHANNEL_ID,
+            )
             return None
         if data.get("expires_in", 0) <= 0:
             return None

@@ -137,9 +137,12 @@ def build_menu_header_bubble() -> dict:
             "contents": [
                 {"type": "text", "text": f"☀️  {info.get('name','Sunny Cafe')}", "weight": "bold", "size": "xl", "color": _COFFEE},
                 {"type": "text", "text": "花蓮 · Hualien", "size": "xs", "color": "#AAAAAA", "margin": "xs"},
+                {"type": "separator", "margin": "md", "color": _CREAM},
                 {"type": "text", "text": f"🕐  {info.get('hours','')}", "size": "sm", "color": "#888888", "margin": "md", "wrap": True},
-                {"type": "separator", "margin": "lg", "color": _CREAM},
-                {"type": "text", "text": "左滑瀏覽菜單  Swipe to browse →", "size": "sm", "color": "#AAAAAA", "margin": "lg", "align": "center"},
+                {"type": "text", "text": f"📍  {info.get('address','')}", "size": "sm", "color": "#888888", "margin": "sm", "wrap": True},
+                {"type": "text", "text": f"📞  {info.get('phone','')}", "size": "sm", "color": "#888888", "margin": "sm"},
+                {"type": "separator", "margin": "md", "color": _CREAM},
+                {"type": "text", "text": "左滑瀏覽菜單  Swipe to browse →", "size": "sm", "color": "#AAAAAA", "margin": "md", "align": "center"},
             ],
         },
     }

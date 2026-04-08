@@ -54,12 +54,12 @@ Security audit and fixes across the entire codebase.
 
 ### Files changed
 
-| File | What changed |
-|------|-------------|
-| `app.py` | CSRF init, secret key required, rate limiter cleanup, PII logging removed, image route narrowed, webhook CSRF-exempt |
-| `admin/routes.py` | `os.environ[]` for credentials (no fallback) |
-| `admin/templates/admin/base.html` | JS auto-injects CSRF token into all POST forms |
-| `liff/routes.py` | `_verify_line_token()` added, submit uses access token, phone + fulfillment validation |
-| `liff/templates/liff/checkout.html` | JS sends `liff.getAccessToken()` instead of hardcoded `user_id` |
-| `requirements.txt` | Added `flask-wtf==1.2.1` |
-| `CLAUDE.md` | Updated to reflect security measures |
+| File                                | What changed                                                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `app.py`                            | CSRF init, secret key required, rate limiter cleanup, PII logging removed, image route narrowed, webhook CSRF-exempt |
+| `admin/routes.py`                   | `os.environ[]` for credentials (no fallback)                                                                         |
+| `admin/templates/admin/base.html`   | JS auto-injects CSRF token into all POST forms                                                                       |
+| `liff/routes.py`                    | `_verify_line_token()` added, submit uses access token, phone + fulfillment validation                               |
+| `liff/templates/liff/checkout.html` | JS sends `liff.getAccessToken()` instead of hardcoded `user_id`                                                      |
+| `requirements.txt`                  | Added `flask-wtf==1.2.1`                                                                                             |
+| `CLAUDE.md`                         | Updated to reflect security measures                                                                                 |
