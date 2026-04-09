@@ -81,4 +81,33 @@ endblock %} {% block content %}
 </div>
 {% else %}
 <p class="text-muted">查無訂單。<small>(No orders found.)</small></p>
-{% endif %} {% endblock %}
+{% endif %}
+
+{% if total_pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-3">
+  <div class="text-muted small">
+    共 {{ total }} 筆 <span class="opacity-50">({{ total }} orders)</span>
+    &nbsp;·&nbsp; 第 {{ page }} / {{ total_pages }} 頁
+  </div>
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if page == 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin.orders', page=page-1, status=status_filter or '') }}">← 上一頁</a>
+      </li>
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+          <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('admin.orders', page=p, status=status_filter or '') }}">{{ p }}</a>
+          </li>
+        {% elif p == page - 3 or p == page + 3 %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin.orders', page=page+1, status=status_filter or '') }}">下一頁 →</a>
+      </li>
+    </ul>
+  </nav>
+</div>
+{% endif %}
+{% endblock %}

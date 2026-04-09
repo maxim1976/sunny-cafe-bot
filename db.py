@@ -387,17 +387,28 @@ def update_order_status(order_id: int, status: str) -> None:
         cur.execute("UPDATE orders SET status = %s WHERE id = %s", (status, order_id))
 
 
-def get_orders(status: str | None = None, limit: int = 50) -> list[dict]:
+def get_orders(status: str | None = None, limit: int = 50, offset: int = 0) -> list[dict]:
     with _conn() as conn, _cur(conn) as cur:
         q = "SELECT * FROM orders"
         params: list = []
         if status:
             q += " WHERE status = %s"
             params.append(status)
-        q += " ORDER BY created_at DESC LIMIT %s"
-        params.append(limit)
+        q += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
         cur.execute(q, params)
         return cur.fetchall()
+
+
+def count_orders(status: str | None = None) -> int:
+    with _conn() as conn, _cur(conn) as cur:
+        q = "SELECT COUNT(*) as n FROM orders"
+        params: list = []
+        if status:
+            q += " WHERE status = %s"
+            params.append(status)
+        cur.execute(q, params)
+        return cur.fetchone()["n"]
 
 
 def get_today_orders() -> list[dict]:

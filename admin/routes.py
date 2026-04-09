@@ -298,15 +298,27 @@ def save_store():
 # ── Orders ────────────────────────────────────────────────────────────────────
 
 
+PER_PAGE = 50
+
 @admin_bp.route("/orders")
 @require_auth
 def orders():
     status_filter = request.args.get("status") or None
-    order_list = [dict(o) for o in db.get_orders(status=status_filter, limit=100)]
+    page = max(1, request.args.get("page", 1, type=int))
+    total = db.count_orders(status=status_filter)
+    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    page = min(page, total_pages)
+    offset = (page - 1) * PER_PAGE
+    order_list = [dict(o) for o in db.get_orders(status=status_filter, limit=PER_PAGE, offset=offset)]
     for o in order_list:
         o["order_items"] = db.get_order_items(o["id"])
     return render_template(
-        "admin/orders.html", orders=order_list, status_filter=status_filter
+        "admin/orders.html",
+        orders=order_list,
+        status_filter=status_filter,
+        page=page,
+        total_pages=total_pages,
+        total=total,
     )
 
 
