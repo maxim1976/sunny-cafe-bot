@@ -153,6 +153,16 @@ def init_schema() -> None:
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id            SERIAL PRIMARY KEY,
+                username      TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role          TEXT NOT NULL CHECK (role IN ('owner','staff')),
+                active        BOOLEAN DEFAULT TRUE,
+                created_at    TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
     logger.info("Schema ready")
 
 
@@ -566,4 +576,62 @@ def save_message(user_id: str, role: str, content: str) -> None:
 def has_history(user_id: str) -> bool:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute("SELECT 1 FROM messages WHERE user_id = %s LIMIT 1", (user_id,))
+        return cur.fetchone() is not None
+
+
+# ── Admin users ───────────────────────────────────────────────────────────────
+
+
+def get_admin_user(username: str) -> dict | None:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute(
+            "SELECT * FROM admin_users WHERE username = %s AND active = TRUE",
+            (username,),
+        )
+        return cur.fetchone()
+
+
+def get_admin_user_by_id(user_id: int) -> dict | None:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute("SELECT * FROM admin_users WHERE id = %s", (user_id,))
+        return cur.fetchone()
+
+
+def get_all_admin_users() -> list[dict]:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute("SELECT * FROM admin_users ORDER BY role, username")
+        return cur.fetchall()
+
+
+def create_admin_user(username: str, password_hash: str, role: str) -> dict:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute(
+            """INSERT INTO admin_users (username, password_hash, role)
+               VALUES (%s, %s, %s) RETURNING *""",
+            (username, password_hash, role),
+        )
+        return cur.fetchone()
+
+
+def update_admin_user(user_id: int, **fields) -> None:
+    allowed = {"username", "password_hash", "role", "active"}
+    fields = {k: v for k, v in fields.items() if k in allowed}
+    if not fields:
+        return
+    sets = ", ".join(f"{k} = %s" for k in fields)
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute(
+            f"UPDATE admin_users SET {sets} WHERE id = %s",
+            (*fields.values(), user_id),
+        )
+
+
+def delete_admin_user(user_id: int) -> None:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+
+
+def admin_user_exists() -> bool:
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute("SELECT 1 FROM admin_users LIMIT 1")
         return cur.fetchone() is not None

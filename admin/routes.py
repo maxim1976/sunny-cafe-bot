@@ -1,11 +1,12 @@
 """
 admin/routes.py - Owner admin panel for Sunny Cafe Bot.
-Protected by HTTP Basic Auth (ADMIN_USER / ADMIN_PASSWORD env vars).
+Session-based auth with role support: owner (full access) / staff (orders only).
 """
 
 import functools
 import os
 
+import bcrypt
 from flask import (
     Blueprint,
     render_template,
@@ -13,7 +14,7 @@ from flask import (
     redirect,
     url_for,
     flash,
-    Response,
+    session,
 )
 
 import db
@@ -22,30 +23,74 @@ admin_bp = Blueprint(
     "admin", __name__, template_folder="templates", url_prefix="/admin"
 )
 
-ADMIN_USER = os.environ["ADMIN_USER"]
-ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
 
 
-# ── Basic Auth ────────────────────────────────────────────────────────────────
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-def _check_auth(username: str, password: str) -> bool:
-    return username == ADMIN_USER and password == ADMIN_PASSWORD
+def _check_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+def _seed_owner() -> None:
+    """Create first owner account from env vars if no admin users exist."""
+    if db.admin_user_exists():
+        return
+    username = os.environ.get("ADMIN_USER")
+    password = os.environ.get("ADMIN_PASSWORD")
+    if username and password:
+        db.create_admin_user(username, _hash_password(password), "owner")
 
 
 def require_auth(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not _check_auth(auth.username, auth.password):
-            return Response(
-                "Authentication required.",
-                401,
-                {"WWW-Authenticate": 'Basic realm="Sunny Cafe Admin"'},
-            )
+        if not session.get("admin_id"):
+            return redirect(url_for("admin.login"))
         return f(*args, **kwargs)
-
     return decorated
+
+
+def require_owner(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin_id"):
+            return redirect(url_for("admin.login"))
+        if session.get("admin_role") != "owner":
+            flash("Owner access required.", "warning")
+            return redirect(url_for("admin.dashboard"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ── Login / Logout ────────────────────────────────────────────────────────────
+
+
+@admin_bp.route("/login", methods=["GET", "POST"])
+def login():
+    _seed_owner()
+    if session.get("admin_id"):
+        return redirect(url_for("admin.dashboard"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = db.get_admin_user(username)
+        if user and _check_password(password, user["password_hash"]):
+            session["admin_id"] = user["id"]
+            session["admin_username"] = user["username"]
+            session["admin_role"] = user["role"]
+            return redirect(url_for("admin.dashboard"))
+        flash("Invalid username or password.", "warning")
+    return render_template("admin/login.html")
+
+
+@admin_bp.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("admin.login"))
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -66,7 +111,7 @@ def dashboard():
 
 
 @admin_bp.route("/menu")
-@require_auth
+@require_owner
 def menu():
     categories = db.get_categories(available_only=False)
     items_by_cat = {
@@ -78,7 +123,7 @@ def menu():
 
 
 @admin_bp.route("/menu/category/add", methods=["POST"])
-@require_auth
+@require_owner
 def add_category():
     db.create_category(
         name_en=request.form["name_en"],
@@ -92,7 +137,7 @@ def add_category():
 
 
 @admin_bp.route("/menu/category/<int:cat_id>/toggle", methods=["POST"])
-@require_auth
+@require_owner
 def toggle_category(cat_id):
     cat = db.get_category(cat_id)
     if cat:
@@ -101,7 +146,7 @@ def toggle_category(cat_id):
 
 
 @admin_bp.route("/menu/category/<int:cat_id>/delete", methods=["POST"])
-@require_auth
+@require_owner
 def delete_category(cat_id):
     db.delete_category(cat_id)
     flash("Category deleted.", "warning")
@@ -109,7 +154,7 @@ def delete_category(cat_id):
 
 
 @admin_bp.route("/menu/item/add", methods=["POST"])
-@require_auth
+@require_owner
 def add_item():
     db.create_item(
         category_id=int(request.form["category_id"]),
@@ -123,7 +168,7 @@ def add_item():
 
 
 @admin_bp.route("/menu/item/<int:item_id>/toggle", methods=["POST"])
-@require_auth
+@require_owner
 def toggle_item(item_id):
     item = db.get_item(item_id)
     if item:
@@ -132,7 +177,7 @@ def toggle_item(item_id):
 
 
 @admin_bp.route("/menu/item/<int:item_id>/edit", methods=["POST"])
-@require_auth
+@require_owner
 def edit_item(item_id):
     db.update_item(
         item_id,
@@ -145,7 +190,7 @@ def edit_item(item_id):
 
 
 @admin_bp.route("/menu/item/<int:item_id>/delete", methods=["POST"])
-@require_auth
+@require_owner
 def delete_item(item_id):
     db.delete_item(item_id)
     flash("Item deleted.", "warning")
@@ -156,13 +201,13 @@ def delete_item(item_id):
 
 
 @admin_bp.route("/discounts")
-@require_auth
+@require_owner
 def discounts():
     return render_template("admin/discounts.html", discounts=db.get_all_discounts())
 
 
 @admin_bp.route("/discounts/add", methods=["POST"])
-@require_auth
+@require_owner
 def add_discount():
     expires = request.form.get("expires_at") or None
     db.create_discount(
@@ -176,7 +221,7 @@ def add_discount():
 
 
 @admin_bp.route("/discounts/<int:discount_id>/toggle", methods=["POST"])
-@require_auth
+@require_owner
 def toggle_discount(discount_id):
     discounts_list = db.get_all_discounts()
     d = next((x for x in discounts_list if x["id"] == discount_id), None)
@@ -186,7 +231,7 @@ def toggle_discount(discount_id):
 
 
 @admin_bp.route("/discounts/<int:discount_id>/delete", methods=["POST"])
-@require_auth
+@require_owner
 def delete_discount(discount_id):
     db.delete_discount(discount_id)
     flash("Discount deleted.", "warning")
@@ -197,13 +242,13 @@ def delete_discount(discount_id):
 
 
 @admin_bp.route("/posts")
-@require_auth
+@require_owner
 def posts():
     return render_template("admin/posts.html", posts=db.get_all_posts())
 
 
 @admin_bp.route("/posts/add", methods=["POST"])
-@require_auth
+@require_owner
 def add_post():
     db.create_post(
         title=request.form.get("title") or None,
@@ -215,7 +260,7 @@ def add_post():
 
 
 @admin_bp.route("/posts/<int:post_id>/toggle", methods=["POST"])
-@require_auth
+@require_owner
 def toggle_post(post_id):
     all_posts = db.get_all_posts()
     p = next((x for x in all_posts if x["id"] == post_id), None)
@@ -225,7 +270,7 @@ def toggle_post(post_id):
 
 
 @admin_bp.route("/posts/<int:post_id>/delete", methods=["POST"])
-@require_auth
+@require_owner
 def delete_post(post_id):
     db.delete_post(post_id)
     flash("Post deleted.", "warning")
@@ -236,13 +281,13 @@ def delete_post(post_id):
 
 
 @admin_bp.route("/store")
-@require_auth
+@require_owner
 def store():
     return render_template("admin/store.html", info=db.get_store_info())
 
 
 @admin_bp.route("/store/save", methods=["POST"])
-@require_auth
+@require_owner
 def save_store():
     data = {k: v for k, v in request.form.items() if k != "csrf_token"}
     db.set_store_info_bulk(data)
@@ -270,3 +315,59 @@ def orders():
 def update_order_status(order_id):
     db.update_order_status(order_id, request.form["status"])
     return redirect(request.referrer or url_for("admin.orders"))
+
+
+# ── Staff management (owner only) ─────────────────────────────────────────────
+
+
+@admin_bp.route("/staff")
+@require_owner
+def staff():
+    users = db.get_all_admin_users()
+    return render_template("admin/staff.html", users=users)
+
+
+@admin_bp.route("/staff/add", methods=["POST"])
+@require_owner
+def add_staff():
+    username = request.form["username"].strip()
+    password = request.form["password"]
+    role = request.form["role"]
+    if db.get_admin_user(username):
+        flash("Username already exists.", "warning")
+        return redirect(url_for("admin.staff"))
+    db.create_admin_user(username, _hash_password(password), role)
+    flash(f"Account '{username}' created.", "success")
+    return redirect(url_for("admin.staff"))
+
+
+@admin_bp.route("/staff/<int:user_id>/toggle", methods=["POST"])
+@require_owner
+def toggle_staff(user_id):
+    if user_id == session.get("admin_id"):
+        flash("Cannot deactivate your own account.", "warning")
+        return redirect(url_for("admin.staff"))
+    user = db.get_admin_user_by_id(user_id)
+    if user:
+        db.update_admin_user(user_id, active=not user["active"])
+    return redirect(url_for("admin.staff"))
+
+
+@admin_bp.route("/staff/<int:user_id>/delete", methods=["POST"])
+@require_owner
+def delete_staff(user_id):
+    if user_id == session.get("admin_id"):
+        flash("Cannot delete your own account.", "warning")
+        return redirect(url_for("admin.staff"))
+    db.delete_admin_user(user_id)
+    flash("Account deleted.", "warning")
+    return redirect(url_for("admin.staff"))
+
+
+@admin_bp.route("/staff/<int:user_id>/reset-password", methods=["POST"])
+@require_owner
+def reset_password(user_id):
+    new_password = request.form["password"]
+    db.update_admin_user(user_id, password_hash=_hash_password(new_password))
+    flash("Password updated.", "success")
+    return redirect(url_for("admin.staff"))
