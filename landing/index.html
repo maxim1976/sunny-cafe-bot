@@ -316,7 +316,7 @@
       color: var(--muted);
       max-width: 580px;
       line-height: 1.8;
-      margin-bottom: 2.8rem;
+      margin-bottom: 1rem;
       opacity: 0;
       animation: rise 1s ease 0.7s forwards;
     }
@@ -326,6 +326,25 @@
       color: rgba(232,226,216,0.35);
       font-size: 0.85em;
       margin-top: 0.3rem;
+    }
+
+    .hero-tagline {
+      font-size: clamp(0.85rem, 1.7vw, 1rem);
+      color: var(--gold);
+      max-width: 580px;
+      line-height: 1.7;
+      margin-bottom: 2.4rem;
+      opacity: 0;
+      animation: rise 1s ease 0.9s forwards;
+      border-left: 2px solid var(--gold-border);
+      padding-left: 0.9rem;
+    }
+
+    .hero-tagline span {
+      display: block;
+      color: rgba(200,160,87,0.55);
+      font-size: 0.82em;
+      margin-top: 0.2rem;
     }
 
     .hero-ctas {
@@ -967,6 +986,10 @@
         <p class="hero-sub">
           AI 點餐助理，24小時不休息。顧客用 LINE 點餐，訂單自動印到廚房。
           <span>Customers order via LINE. Orders print to your kitchen automatically.</span>
+        </p>
+        <p class="hero-tagline">
+          顧客用 LINE 提前點餐，減少排隊，增加翻桌率。
+          <span>Customers pre-order on LINE — shorter queues, higher throughput.</span>
         </p>
         <div class="hero-ctas">
           <a href="#demo"    class="btn btn-gold">📱 掃碼試用 &nbsp;/&nbsp; Try Demo</a>
