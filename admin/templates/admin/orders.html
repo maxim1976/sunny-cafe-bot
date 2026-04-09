@@ -71,13 +71,7 @@ endblock %} {% block content %}
               {% for s in ['pending','ready','done','cancelled'] %}
               <option
                 value="{{ s }}"
-                {%
-                if
-                o.status=""
-                ="s"
-                %}selected{%
-                endif
-                %}
+                {% if o.status == s %}selected{% endif %}
               >
                 {{ s }}
               </option>
