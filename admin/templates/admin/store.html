@@ -1,18 +1,18 @@
 {% extends "admin/base.html" %}
-{% block title %}Store Info — Sunny Cafe Admin{% endblock %}
+{% block title %}店家資訊 — Sunny Cafe Admin{% endblock %}
 {% block content %}
-<h4 class="mb-4">🏪 Store Information</h4>
+<h4 class="mb-4">🏪 店家資訊 <small class="text-muted fs-6 fw-normal">(Store Information)</small></h4>
 
 <div class="card shadow-sm" style="max-width:600px">
   <div class="card-body">
     <form method="post" action="{{ url_for('admin.save_store') }}">
       {% set fields = [
-        ('name',     'Cafe Name',     'text',  'Sunny Cafe'),
-        ('address',  'Address',       'text',  '花蓮縣花蓮市林森路 252 號'),
-        ('phone',    'Phone',         'tel',   '03-888-8888'),
-        ('hours',    'Opening Hours', 'text',  '每日 08:00–20:00'),
-        ('currency', 'Currency',      'text',  'TWD'),
-        ('wifi',     'WiFi Password', 'text',  ''),
+        ('name',     '店名 (Cafe Name)',       'text',  'Sunny Cafe'),
+        ('address',  '地址 (Address)',          'text',  '花蓮縣花蓮市林森路 252 號'),
+        ('phone',    '電話 (Phone)',            'tel',   '03-888-8888'),
+        ('hours',    '營業時間 (Opening Hours)', 'text',  '每日 08:00–20:00'),
+        ('currency', '貨幣 (Currency)',         'text',  'TWD'),
+        ('wifi',     'WiFi 密碼 (WiFi Password)','text', ''),
       ] %}
       {% for key, label, type_, placeholder in fields %}
       <div class="mb-3">
@@ -21,7 +21,7 @@
                value="{{ info.get(key, '') }}" placeholder="{{ placeholder }}">
       </div>
       {% endfor %}
-      <button class="btn btn-primary w-100">Save Changes</button>
+      <button class="btn btn-primary w-100">儲存 <small>(Save Changes)</small></button>
     </form>
   </div>
 </div>

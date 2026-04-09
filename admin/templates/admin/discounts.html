@@ -1,10 +1,10 @@
 {% extends "admin/base.html" %}
-{% block title %}Discounts — Sunny Cafe Admin{% endblock %}
+{% block title %}折扣管理 — Sunny Cafe Admin{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="mb-0">🏷️ Discounts</h4>
+  <h4 class="mb-0">🏷️ 折扣管理 <small class="text-muted fs-6 fw-normal">(Discounts)</small></h4>
   <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addModal">
-    + New Discount
+    + 新增折扣 <span style="font-size:.72rem;opacity:.6">(New Discount)</span>
   </button>
 </div>
 
@@ -12,26 +12,33 @@
 <div class="table-responsive">
   <table class="table table-hover bg-white shadow-sm rounded">
     <thead class="table-light">
-      <tr><th>Name</th><th>Type</th><th>Value</th><th>Expires</th><th>Active</th><th></th></tr>
+      <tr>
+        <th>名稱 <span class="text-muted" style="font-size:.72rem">(Name)</span></th>
+        <th>類型 <span class="text-muted" style="font-size:.72rem">(Type)</span></th>
+        <th>折扣值 <span class="text-muted" style="font-size:.72rem">(Value)</span></th>
+        <th>到期日 <span class="text-muted" style="font-size:.72rem">(Expires)</span></th>
+        <th>狀態 <span class="text-muted" style="font-size:.72rem">(Active)</span></th>
+        <th></th>
+      </tr>
     </thead>
     <tbody>
     {% for d in discounts %}
     <tr class="{% if not d.active %}text-muted{% endif %}">
       <td>{{ d.name }}</td>
-      <td>{{ d.type }}</td>
+      <td>{% if d.type == 'percent' %}百分比 <small class="text-muted">(percent)</small>{% else %}固定金額 <small class="text-muted">(fixed)</small>{% endif %}</td>
       <td>{% if d.type == 'percent' %}{{ d.value }}%{% else %}NT${{ d.value }}{% endif %}</td>
       <td class="small">{{ d.expires_at.strftime('%Y-%m-%d') if d.expires_at else '—' }}</td>
       <td>
         <form method="post" action="{{ url_for('admin.toggle_discount', discount_id=d.id) }}">
           <button class="btn btn-sm {% if d.active %}btn-success{% else %}btn-secondary{% endif %}">
-            {% if d.active %}Active{% else %}Off{% endif %}
+            {% if d.active %}啟用中 <small>(Active)</small>{% else %}停用 <small>(Off)</small>{% endif %}
           </button>
         </form>
       </td>
       <td>
         <form method="post" action="{{ url_for('admin.delete_discount', discount_id=d.id) }}"
-              onsubmit="return confirm('Delete this discount?')">
-          <button class="btn btn-sm btn-outline-danger">Delete</button>
+              onsubmit="return confirm('刪除此折扣？(Delete this discount?)')">
+          <button class="btn btn-sm btn-outline-danger">刪除 <small>(Delete)</small></button>
         </form>
       </td>
     </tr>
@@ -40,37 +47,37 @@
   </table>
 </div>
 {% else %}
-<p class="text-muted">No discounts yet.</p>
+<p class="text-muted">尚無折扣。<small>(No discounts yet.)</small></p>
 {% endif %}
 
 <!-- Add discount modal -->
 <div class="modal fade" id="addModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">New Discount</h5>
+      <div class="modal-header">
+        <h5 class="modal-title">新增折扣 <small class="text-muted">(New Discount)</small></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" action="{{ url_for('admin.add_discount') }}">
         <div class="modal-body">
-          <div class="mb-3"><label class="form-label">Name</label>
-            <input class="form-control" name="name" placeholder="e.g. Happy Hour 10%" required></div>
+          <div class="mb-3"><label class="form-label">折扣名稱 (Name)</label>
+            <input class="form-control" name="name" placeholder="例: 快樂時光 10%" required></div>
           <div class="row g-2 mb-3">
             <div class="col">
-              <label class="form-label">Type</label>
+              <label class="form-label">類型 (Type)</label>
               <select class="form-select" name="type" required>
-                <option value="percent">Percent (%)</option>
-                <option value="fixed">Fixed (NT$)</option>
+                <option value="percent">百分比 (Percent %)</option>
+                <option value="fixed">固定金額 (Fixed NT$)</option>
               </select>
             </div>
-            <div class="col"><label class="form-label">Value</label>
-              <input class="form-control" name="value" type="number" min="1" required
-                     placeholder="e.g. 10 or 50"></div>
+            <div class="col"><label class="form-label">折扣值 (Value)</label>
+              <input class="form-control" name="value" type="number" min="1" required placeholder="例: 10 或 50"></div>
           </div>
-          <div class="mb-3"><label class="form-label">Expires at (optional)</label>
+          <div class="mb-3"><label class="form-label">到期日 (Expires at, optional)</label>
             <input class="form-control" name="expires_at" type="datetime-local"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary">Create</button>
+          <button class="btn btn-primary">建立 (Create)</button>
         </div>
       </form>
     </div>

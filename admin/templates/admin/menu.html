@@ -1,10 +1,10 @@
 {% extends "admin/base.html" %}
-{% block title %}Menu — Sunny Cafe Admin{% endblock %}
+{% block title %}菜單管理 — Sunny Cafe Admin{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="mb-0">☕ Menu Management</h4>
+  <h4 class="mb-0">☕ 菜單管理 <small class="text-muted fs-6 fw-normal">(Menu Management)</small></h4>
   <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCatModal">
-    + Add Category
+    + 新增分類 <span style="font-size:.72rem;opacity:.6">(Add Category)</span>
   </button>
 </div>
 
@@ -16,19 +16,25 @@
     <div class="d-flex gap-2">
       <form method="post" action="{{ url_for('admin.toggle_category', cat_id=cat.id) }}">
         <button class="btn btn-sm btn-light">
-          {% if cat.available %}Hide{% else %}Show{% endif %}
+          {% if cat.available %}隱藏 <small>(Hide)</small>{% else %}顯示 <small>(Show)</small>{% endif %}
         </button>
       </form>
       <form method="post" action="{{ url_for('admin.delete_category', cat_id=cat.id) }}"
-            onsubmit="return confirm('Delete this category and all its items?')">
-        <button class="btn btn-sm btn-danger">Delete</button>
+            onsubmit="return confirm('刪除此分類及所有品項？(Delete this category and all items?)')">
+        <button class="btn btn-sm btn-danger">刪除 <small>(Delete)</small></button>
       </form>
     </div>
   </div>
   <div class="card-body p-0">
     <table class="table table-hover mb-0">
       <thead class="table-light">
-        <tr><th>ZH Name</th><th>EN Name</th><th>Price</th><th>Available</th><th></th></tr>
+        <tr>
+          <th>中文名稱 <span class="text-muted" style="font-size:.72rem">(ZH)</span></th>
+          <th>英文名稱 <span class="text-muted" style="font-size:.72rem">(EN)</span></th>
+          <th>價格 <span class="text-muted" style="font-size:.72rem">(Price)</span></th>
+          <th>供應 <span class="text-muted" style="font-size:.72rem">(Available)</span></th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
       {% for item in items_by_cat.get(cat.id, []) %}
@@ -39,16 +45,16 @@
         <td>
           <form method="post" action="{{ url_for('admin.toggle_item', item_id=item.id) }}">
             <button class="btn btn-sm {% if item.available %}btn-success{% else %}btn-secondary{% endif %}">
-              {% if item.available %}✓ On{% else %}✗ Off{% endif %}
+              {% if item.available %}✓ 供應中{% else %}✗ 停售{% endif %}
             </button>
           </form>
         </td>
         <td class="d-flex gap-1">
           <button class="btn btn-sm btn-outline-primary"
-                  data-bs-toggle="modal" data-bs-target="#editItem{{ item.id }}">Edit</button>
+                  data-bs-toggle="modal" data-bs-target="#editItem{{ item.id }}">編輯 <small>(Edit)</small></button>
           <form method="post" action="{{ url_for('admin.delete_item', item_id=item.id) }}"
-                onsubmit="return confirm('Delete this item?')">
-            <button class="btn btn-sm btn-outline-danger">Del</button>
+                onsubmit="return confirm('刪除此品項？(Delete this item?)')">
+            <button class="btn btn-sm btn-outline-danger">刪</button>
           </form>
         </td>
       </tr>
@@ -57,20 +63,21 @@
       <div class="modal fade" id="editItem{{ item.id }}" tabindex="-1">
         <div class="modal-dialog modal-sm">
           <div class="modal-content">
-            <div class="modal-header"><h6 class="modal-title">Edit {{ item.name_en }}</h6>
+            <div class="modal-header">
+              <h6 class="modal-title">編輯 {{ item.name_zh }} <small class="text-muted">(Edit)</small></h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="post" action="{{ url_for('admin.edit_item', item_id=item.id) }}">
               <div class="modal-body">
-                <div class="mb-2"><label class="form-label small">ZH Name</label>
+                <div class="mb-2"><label class="form-label small">中文名稱 (ZH Name)</label>
                   <input class="form-control form-control-sm" name="name_zh" value="{{ item.name_zh }}" required></div>
-                <div class="mb-2"><label class="form-label small">EN Name</label>
+                <div class="mb-2"><label class="form-label small">英文名稱 (EN Name)</label>
                   <input class="form-control form-control-sm" name="name_en" value="{{ item.name_en }}" required></div>
-                <div class="mb-2"><label class="form-label small">Price (NT$)</label>
+                <div class="mb-2"><label class="form-label small">價格 (Price) NT$</label>
                   <input class="form-control form-control-sm" name="price" type="number" value="{{ item.price }}" required></div>
               </div>
               <div class="modal-footer">
-                <button class="btn btn-sm btn-primary">Save</button>
+                <button class="btn btn-sm btn-primary">儲存 (Save)</button>
               </div>
             </form>
           </div>
@@ -85,7 +92,7 @@
           <td><input class="form-control form-control-sm" name="name_zh" placeholder="中文名稱" required></td>
           <td><input class="form-control form-control-sm" name="name_en" placeholder="English name" required></td>
           <td><input class="form-control form-control-sm" name="price" type="number" placeholder="NT$" required style="width:80px"></td>
-          <td colspan="2"><button class="btn btn-sm btn-primary">+ Add Item</button></td>
+          <td colspan="2"><button class="btn btn-sm btn-primary">+ 新增品項 (Add Item)</button></td>
         </form>
       </tr>
       </tbody>
@@ -98,26 +105,27 @@
 <div class="modal fade" id="addCatModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Add Category</h5>
+      <div class="modal-header">
+        <h5 class="modal-title">新增分類 <small class="text-muted">(Add Category)</small></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" action="{{ url_for('admin.add_category') }}">
         <div class="modal-body">
-          <div class="mb-3"><label class="form-label">Chinese Name</label>
+          <div class="mb-3"><label class="form-label">中文名稱 (Chinese Name)</label>
             <input class="form-control" name="name_zh" required></div>
-          <div class="mb-3"><label class="form-label">English Name</label>
+          <div class="mb-3"><label class="form-label">英文名稱 (English Name)</label>
             <input class="form-control" name="name_en" required></div>
           <div class="row g-2">
-            <div class="col"><label class="form-label">Emoji</label>
+            <div class="col"><label class="form-label">表情符號 (Emoji)</label>
               <input class="form-control" name="emoji" value="☕"></div>
-            <div class="col"><label class="form-label">Image file</label>
+            <div class="col"><label class="form-label">圖片檔名 (Image file)</label>
               <input class="form-control" name="image_file" placeholder="coffee.jpg"></div>
-            <div class="col"><label class="form-label">Sort order</label>
+            <div class="col"><label class="form-label">排序 (Sort order)</label>
               <input class="form-control" name="sort_order" type="number" value="0"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary">Add Category</button>
+          <button class="btn btn-primary">新增分類 (Add Category)</button>
         </div>
       </form>
     </div>

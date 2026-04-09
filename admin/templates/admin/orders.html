@@ -1,15 +1,12 @@
-{% extends "admin/base.html" %} {% block title %}Orders — Sunny Cafe Admin{%
+{% extends "admin/base.html" %} {% block title %}訂單記錄 — Sunny Cafe Admin{%
 endblock %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="mb-0">📋 Order History</h4>
+  <h4 class="mb-0">📋 訂單記錄 <small class="text-muted fs-6 fw-normal">(Order History)</small></h4>
   <div class="d-flex gap-2">
-    {% for s, label in [('', 'All'), ('pending', 'Pending'), ('ready', 'Ready'),
-    ('done', 'Done'), ('cancelled', 'Cancelled')] %}
-    <a
-      href="{{ url_for('admin.orders') }}{% if s %}?status={{ s }}{% endif %}"
-      class="btn btn-sm {% if status_filter == s or (not status_filter and not s) %}btn-primary{% else %}btn-outline-secondary{% endif %}"
-    >
-      {{ label }}
+    {% for s, zh, en in [('','全部','All'),('pending','待處理','Pending'),('ready','已備好','Ready'),('done','完成','Done'),('cancelled','取消','Cancelled')] %}
+    <a href="{{ url_for('admin.orders') }}{% if s %}?status={{ s }}{% endif %}"
+      class="btn btn-sm {% if status_filter == s or (not status_filter and not s) %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+      {{ zh }} <span style="font-size:.72rem;opacity:.6">({{ en }})</span>
     </a>
     {% endfor %}
   </div>
@@ -21,13 +18,13 @@ endblock %} {% block content %}
     <thead class="table-light">
       <tr>
         <th>#</th>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Type</th>
-        <th>Items</th>
-        <th>Total</th>
-        <th>Time</th>
-        <th>Status</th>
+        <th>姓名 <span class="text-muted" style="font-size:.72rem">(Name)</span></th>
+        <th>電話 <span class="text-muted" style="font-size:.72rem">(Phone)</span></th>
+        <th>類型 <span class="text-muted" style="font-size:.72rem">(Type)</span></th>
+        <th>品項 <span class="text-muted" style="font-size:.72rem">(Items)</span></th>
+        <th>金額 <span class="text-muted" style="font-size:.72rem">(Total)</span></th>
+        <th>時間 <span class="text-muted" style="font-size:.72rem">(Time)</span></th>
+        <th>狀態 <span class="text-muted" style="font-size:.72rem">(Status)</span></th>
         <th></th>
       </tr>
     </thead>
@@ -38,43 +35,29 @@ endblock %} {% block content %}
         <td>{{ o.customer_name or '—' }}</td>
         <td>{{ o.phone or '—' }}</td>
         <td>
-          {% if o.fulfillment == 'dine-in' %}
-          <span class="badge bg-success">內用</span>
-          {% elif o.fulfillment == 'takeaway' %}
-          <span class="badge bg-warning text-dark">外帶</span>
-          {% elif o.fulfillment == 'delivery' %}
-          <span class="badge bg-info text-dark">外送</span>
-          {% else %} {{ o.fulfillment or '—' }} {% endif %}
+          {% if o.fulfillment == 'dine-in' %}<span class="badge bg-success">內用</span>
+          {% elif o.fulfillment == 'takeaway' %}<span class="badge bg-warning text-dark">外帶</span>
+          {% elif o.fulfillment == 'delivery' %}<span class="badge bg-info text-dark">外送</span>
+          {% else %}{{ o.fulfillment or '—' }}{% endif %}
         </td>
         <td class="small">
-          {% if o.order_items %} {% for item in o.order_items %} {{ item.name_zh
-          or item.name_en }} ×{{ item.qty }}<br />
-          {% endfor %} {% else %}—{% endif %}
+          {% if o.order_items %}{% for item in o.order_items %}{{ item.name_zh or item.name_en }} ×{{ item.qty }}<br />{% endfor %}
+          {% else %}—{% endif %}
         </td>
         <td>NT${{ o.total or 0 }}</td>
-        <td class="text-muted small">
-          {{ (o.created_at | taipei_time).strftime('%m/%d %H:%M') if
-          o.created_at else '—' }}
-        </td>
-        <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
+        <td class="text-muted small">{{ (o.created_at | taipei_time).strftime('%m/%d %H:%M') if o.created_at else '—' }}</td>
         <td>
-          <form
-            method="post"
-            action="{{ url_for('admin.update_order_status', order_id=o.id) }}"
-            class="d-flex gap-1"
-          >
-            <select
-              name="status"
-              class="form-select form-select-sm"
-              style="width: auto"
-            >
-              {% for s in ['pending','ready','done','cancelled'] %}
-              <option
-                value="{{ s }}"
-                {% if o.status == s %}selected{% endif %}
-              >
-                {{ s }}
-              </option>
+          {% if o.status == 'pending' %}<span class="badge badge-pending">待處理</span>
+          {% elif o.status == 'ready' %}<span class="badge badge-ready">已備好</span>
+          {% elif o.status == 'done' %}<span class="badge badge-done">完成</span>
+          {% elif o.status == 'cancelled' %}<span class="badge badge-cancelled">取消</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('admin.update_order_status', order_id=o.id) }}" class="d-flex gap-1">
+            <select name="status" class="form-select form-select-sm" style="width: auto">
+              {% for s, zh_s in [('pending','待處理'),('ready','已備好'),('done','完成'),('cancelled','取消')] %}
+              <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ zh_s }}</option>
               {% endfor %}
             </select>
             <button class="btn btn-sm btn-outline-secondary">✓</button>
@@ -84,20 +67,18 @@ endblock %} {% block content %}
       {% if o.address %}
       <tr class="table-light">
         <td colspan="9" class="small text-muted py-1 ps-4">
-          📍 {{ o.address }} {% if o.pickup_time %} &nbsp;·&nbsp; ⏰ {{
-          o.pickup_time }}{% endif %}
+          📍 {{ o.address }}{% if o.pickup_time %} &nbsp;·&nbsp; ⏰ {{ o.pickup_time }}{% endif %}
         </td>
       </tr>
       {% elif o.pickup_time %}
       <tr class="table-light">
-        <td colspan="9" class="small text-muted py-1 ps-4">
-          ⏰ Pickup: {{ o.pickup_time }}
-        </td>
+        <td colspan="9" class="small text-muted py-1 ps-4">⏰ 取餐時間 (Pickup): {{ o.pickup_time }}</td>
       </tr>
-      {% endif %} {% endfor %}
+      {% endif %}
+      {% endfor %}
     </tbody>
   </table>
 </div>
 {% else %}
-<p class="text-muted">No orders found.</p>
+<p class="text-muted">查無訂單。<small>(No orders found.)</small></p>
 {% endif %} {% endblock %}

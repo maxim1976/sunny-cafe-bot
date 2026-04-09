@@ -1,33 +1,33 @@
 {% extends "admin/base.html" %}
-{% block title %}Staff — Sunny Cafe Admin{% endblock %}
+{% block title %}員工帳號 — Sunny Cafe Admin{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h3 class="mb-0">Staff Accounts</h3>
+  <h3 class="mb-0">👥 員工帳號 <small class="text-muted fs-6 fw-normal">(Staff Accounts)</small></h3>
 </div>
 
 <!-- Add account -->
 <div class="card mb-4">
-  <div class="card-header fw-semibold">Add Account</div>
+  <div class="card-header fw-semibold">新增帳號 <small class="text-muted fw-normal">(Add Account)</small></div>
   <div class="card-body">
     <form method="post" action="{{ url_for('admin.add_staff') }}" class="row g-2 align-items-end">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <div class="col-sm-3">
-        <label class="form-label small">Username</label>
+        <label class="form-label small">帳號 (Username)</label>
         <input type="text" name="username" class="form-control form-control-sm" required />
       </div>
       <div class="col-sm-3">
-        <label class="form-label small">Password</label>
+        <label class="form-label small">密碼 (Password)</label>
         <input type="password" name="password" class="form-control form-control-sm" required />
       </div>
       <div class="col-sm-2">
-        <label class="form-label small">Role</label>
+        <label class="form-label small">權限 (Role)</label>
         <select name="role" class="form-select form-select-sm">
-          <option value="staff">staff</option>
-          <option value="owner">owner</option>
+          <option value="staff">員工 (staff)</option>
+          <option value="owner">老闆 (owner)</option>
         </select>
       </div>
       <div class="col-sm-2">
-        <button type="submit" class="btn btn-sm btn-success w-100">Add</button>
+        <button type="submit" class="btn btn-sm btn-success w-100">新增 (Add)</button>
       </div>
     </form>
   </div>
@@ -35,23 +35,26 @@
 
 <!-- Account list -->
 <div class="card">
-  <div class="card-header fw-semibold">Accounts</div>
+  <div class="card-header fw-semibold">帳號列表 <small class="text-muted fw-normal">(Accounts)</small></div>
   <table class="table table-hover mb-0">
     <thead class="table-light">
       <tr>
-        <th>Username</th>
-        <th>Role</th>
-        <th>Status</th>
-        <th>Created</th>
-        <th>Actions</th>
+        <th>帳號 <span class="text-muted" style="font-size:.72rem">(Username)</span></th>
+        <th>權限 <span class="text-muted" style="font-size:.72rem">(Role)</span></th>
+        <th>狀態 <span class="text-muted" style="font-size:.72rem">(Status)</span></th>
+        <th>建立日期 <span class="text-muted" style="font-size:.72rem">(Created)</span></th>
+        <th>操作 <span class="text-muted" style="font-size:.72rem">(Actions)</span></th>
       </tr>
     </thead>
     <tbody>
       {% for u in users %}
       <tr class="{{ 'text-muted' if not u.active }}">
-        <td>{{ u.username }}{% if u.id == session.get('admin_id') %} <span class="badge bg-secondary">you</span>{% endif %}</td>
-        <td><span class="badge {{ 'bg-warning text-dark' if u.role == 'owner' else 'bg-secondary' }}">{{ u.role }}</span></td>
-        <td><span class="badge {{ 'bg-success' if u.active else 'bg-light text-dark border' }}">{{ 'active' if u.active else 'inactive' }}</span></td>
+        <td>{{ u.username }}{% if u.id == session.get('admin_id') %} <span class="badge bg-secondary">你 (you)</span>{% endif %}</td>
+        <td>
+          {% if u.role == 'owner' %}<span class="badge bg-warning text-dark">老闆 (owner)</span>
+          {% else %}<span class="badge bg-secondary">員工 (staff)</span>{% endif %}
+        </td>
+        <td><span class="badge {{ 'bg-success' if u.active else 'bg-light text-dark border' }}">{{ '啟用 (active)' if u.active else '停用 (inactive)' }}</span></td>
         <td class="small text-muted">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at }}</td>
         <td>
           <div class="d-flex gap-1 flex-wrap">
@@ -59,20 +62,19 @@
             <form method="post" action="{{ url_for('admin.toggle_staff', user_id=u.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <button type="submit" class="btn btn-sm {{ 'btn-outline-secondary' if u.active else 'btn-outline-success' }}">
-                {{ 'Deactivate' if u.active else 'Activate' }}
+                {{ '停用 (Deactivate)' if u.active else '啟用 (Activate)' }}
               </button>
             </form>
             {% endif %}
-            <!-- Reset password -->
             <button type="button" class="btn btn-sm btn-outline-primary"
               data-bs-toggle="modal" data-bs-target="#resetModal{{ u.id }}">
-              Reset PW
+              改密碼 <small>(Reset PW)</small>
             </button>
             {% if u.id != session.get('admin_id') %}
             <form method="post" action="{{ url_for('admin.delete_staff', user_id=u.id) }}"
-              onsubmit="return confirm('Delete {{ u.username }}?')">
+              onsubmit="return confirm('刪除 {{ u.username }}？(Delete?)')">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              <button type="submit" class="btn btn-sm btn-outline-danger">刪除 <small>(Delete)</small></button>
             </form>
             {% endif %}
           </div>
@@ -84,17 +86,17 @@
         <div class="modal-dialog modal-sm">
           <div class="modal-content">
             <div class="modal-header">
-              <h6 class="modal-title">Reset password — {{ u.username }}</h6>
+              <h6 class="modal-title">變更密碼 — {{ u.username }} <small class="text-muted">(Reset password)</small></h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="post" action="{{ url_for('admin.reset_password', user_id=u.id) }}">
               <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <input type="password" name="password" class="form-control form-control-sm"
-                  placeholder="New password" required />
+                  placeholder="新密碼 (New password)" required />
               </div>
               <div class="modal-footer">
-                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                <button type="submit" class="btn btn-sm btn-primary">儲存 (Save)</button>
               </div>
             </form>
           </div>
