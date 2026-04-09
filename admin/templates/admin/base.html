@@ -66,38 +66,38 @@
           <a
             class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
             href="{{ url_for('admin.dashboard') }}"
-            ><i class="bi bi-speedometer2 me-2"></i>Dashboard</a
+            ><i class="bi bi-speedometer2 me-2"></i>今日總覽 <small class="opacity-50">(Dashboard)</small></a
           >
           <a
             class="nav-link {% if request.endpoint and 'order' in request.endpoint %}active{% endif %}"
             href="{{ url_for('admin.orders') }}"
-            ><i class="bi bi-receipt me-2"></i>Orders</a
+            ><i class="bi bi-receipt me-2"></i>訂單 <small class="opacity-50">(Orders)</small></a
           >
           {% if session.get('admin_role') == 'owner' %}
           <a
             class="nav-link {% if request.endpoint and 'menu' in request.endpoint %}active{% endif %}"
             href="{{ url_for('admin.menu') }}"
-            ><i class="bi bi-journal-text me-2"></i>Menu</a
+            ><i class="bi bi-journal-text me-2"></i>菜單 <small class="opacity-50">(Menu)</small></a
           >
           <a
             class="nav-link {% if request.endpoint and 'discount' in request.endpoint %}active{% endif %}"
             href="{{ url_for('admin.discounts') }}"
-            ><i class="bi bi-tag me-2"></i>Discounts</a
+            ><i class="bi bi-tag me-2"></i>折扣 <small class="opacity-50">(Discounts)</small></a
           >
           <a
             class="nav-link {% if request.endpoint and 'post' in request.endpoint %}active{% endif %}"
             href="{{ url_for('admin.posts') }}"
-            ><i class="bi bi-megaphone me-2"></i>Posts</a
+            ><i class="bi bi-megaphone me-2"></i>公告 <small class="opacity-50">(Posts)</small></a
           >
           <a
             class="nav-link {% if request.endpoint == 'admin.store' %}active{% endif %}"
             href="{{ url_for('admin.store') }}"
-            ><i class="bi bi-shop me-2"></i>Store Info</a
+            ><i class="bi bi-shop me-2"></i>店家資訊 <small class="opacity-50">(Store Info)</small></a
           >
           <a
             class="nav-link {% if request.endpoint and 'staff' in request.endpoint %}active{% endif %}"
             href="{{ url_for('admin.staff') }}"
-            ><i class="bi bi-people me-2"></i>Staff</a
+            ><i class="bi bi-people me-2"></i>員工帳號 <small class="opacity-50">(Staff)</small></a
           >
           {% endif %}
         </nav>

@@ -1,37 +1,40 @@
-{% extends "admin/base.html" %} {% block title %}Dashboard — Sunny Cafe Admin{%
+{% extends "admin/base.html" %} {% block title %}今日總覽 — Sunny Cafe Admin{%
 endblock %} {% block content %}
-<h4 class="mb-4">📊 Today's Dashboard</h4>
+<h4 class="mb-4">📊 今日總覽 <small class="text-muted fs-6 fw-normal">(Dashboard)</small></h4>
 
 <div class="row g-3 mb-4">
-  {% for status, label, icon, color in [ ('pending', 'Pending', 'clock',
-  'warning'), ('ready', 'Ready', 'check-circle', 'primary'), ('done', 'Done',
-  'bag-check', 'success'), ('cancelled', 'Cancelled', 'x-circle', 'danger'), ]
-  %}
+  {% for status, zh, en, icon, color in [
+    ('pending', '待處理', 'Pending', 'clock', 'warning'),
+    ('ready',   '已備好', 'Ready',   'check-circle', 'primary'),
+    ('done',    '完成',   'Done',    'bag-check', 'success'),
+    ('cancelled','取消',  'Cancelled','x-circle', 'danger'),
+  ] %}
   <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm">
       <div class="card-body text-center">
         <i class="bi bi-{{ icon }} fs-2 text-{{ color }}"></i>
         <div class="fs-1 fw-bold">{{ counts.get(status, 0) }}</div>
-        <div class="text-muted small">{{ label }}</div>
+        <div class="fw-semibold">{{ zh }}</div>
+        <div class="text-muted" style="font-size:.72rem">({{ en }})</div>
       </div>
     </div>
   </div>
   {% endfor %}
 </div>
 
-<h5 class="mb-3">Today's Orders</h5>
+<h5 class="mb-3">今日訂單 <small class="text-muted fs-6 fw-normal">(Today's Orders)</small></h5>
 {% if orders %}
 <div class="table-responsive">
   <table class="table table-hover bg-white shadow-sm rounded">
     <thead class="table-light">
       <tr>
         <th>#</th>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Type</th>
-        <th>Total</th>
-        <th>Time</th>
-        <th>Status</th>
+        <th>姓名 <span class="text-muted" style="font-size:.72rem">(Name)</span></th>
+        <th>電話 <span class="text-muted" style="font-size:.72rem">(Phone)</span></th>
+        <th>類型 <span class="text-muted" style="font-size:.72rem">(Type)</span></th>
+        <th>金額 <span class="text-muted" style="font-size:.72rem">(Total)</span></th>
+        <th>時間 <span class="text-muted" style="font-size:.72rem">(Time)</span></th>
+        <th>狀態 <span class="text-muted" style="font-size:.72rem">(Status)</span></th>
         <th></th>
       </tr>
     </thead>
@@ -41,34 +44,32 @@ endblock %} {% block content %}
         <td>{{ o.id }}</td>
         <td>{{ o.customer_name or '—' }}</td>
         <td>{{ o.phone or '—' }}</td>
-        <td>{{ o.fulfillment or '—' }}</td>
+        <td>
+          {% if o.fulfillment == 'dine-in' %}內用
+          {% elif o.fulfillment == 'takeaway' %}外帶
+          {% elif o.fulfillment == 'delivery' %}外送
+          {% else %}—{% endif %}
+          <span class="text-muted" style="font-size:.72rem">({{ o.fulfillment or '—' }})</span>
+        </td>
         <td>NT${{ o.total or 0 }}</td>
         <td class="text-muted small">
-          {{ (o.created_at | taipei_time).strftime('%H:%M') if o.created_at else
-          '—' }}
+          {{ (o.created_at | taipei_time).strftime('%H:%M') if o.created_at else '—' }}
         </td>
-        <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
         <td>
-          <form
-            method="post"
-            action="{{ url_for('admin.update_order_status', order_id=o.id) }}"
-            class="d-flex gap-1"
-          >
-            <select
-              name="status"
-              class="form-select form-select-sm"
-              style="width: auto"
-            >
-              {% for s in ['pending','ready','done','cancelled'] %}
-              <option
-                value="{{ s }}"
-                {% if o.status == s %}selected{% endif %}
-              >
-                {{ s }}
-              </option>
+          {% if o.status == 'pending' %}<span class="badge badge-pending">待處理</span>
+          {% elif o.status == 'ready' %}<span class="badge badge-ready">已備好</span>
+          {% elif o.status == 'done' %}<span class="badge badge-done">完成</span>
+          {% elif o.status == 'cancelled' %}<span class="badge badge-cancelled">取消</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('admin.update_order_status', order_id=o.id) }}" class="d-flex gap-1">
+            <select name="status" class="form-select form-select-sm" style="width: auto">
+              {% for s, zh_s in [('pending','待處理'),('ready','已備好'),('done','完成'),('cancelled','取消')] %}
+              <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ zh_s }}</option>
               {% endfor %}
             </select>
-            <button class="btn btn-sm btn-outline-secondary">Update</button>
+            <button class="btn btn-sm btn-outline-secondary">更新</button>
           </form>
         </td>
       </tr>
@@ -77,5 +78,5 @@ endblock %} {% block content %}
   </table>
 </div>
 {% else %}
-<div class="text-muted">No orders yet today.</div>
+<div class="text-muted">今天還沒有訂單。<small>(No orders yet today.)</small></div>
 {% endif %} {% endblock %}
