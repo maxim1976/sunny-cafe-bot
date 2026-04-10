@@ -15,7 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+TOKEN   = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+LIFF_ID = os.getenv("LIFF_ID", "")
 IMAGE_PATH = "richmenu_image.jpg"
 
 # Rich menu dimensions (LINE standard)
@@ -100,7 +101,11 @@ def create_rich_menu() -> str:
         "areas": [
             {
                 "bounds": {"x": 0, "y": 0, "width": W // 2, "height": H},
-                "action": {"type": "message", "label": "查看菜單", "text": "menu"},
+                "action": (
+                    {"type": "uri",     "label": "查看菜單", "uri": f"https://liff.line.me/{LIFF_ID}"}
+                    if LIFF_ID else
+                    {"type": "message", "label": "查看菜單", "text": "menu"}
+                ),
             },
             {
                 "bounds": {"x": W // 2, "y": 0, "width": W // 2, "height": H},

@@ -75,6 +75,7 @@ def init_schema() -> None:
                 sort_order  INTEGER DEFAULT 0
             )
         """)
+        cur.execute("ALTER TABLE items ADD COLUMN IF NOT EXISTS image_file TEXT")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS discounts (
                 id         SERIAL PRIMARY KEY,
@@ -250,20 +251,31 @@ def get_all_items(available_only: bool = True) -> list[dict]:
         return cur.fetchall()
 
 
+def get_menu_for_liff() -> list[dict]:
+    """Return available categories with their items nested — for the LIFF menu page."""
+    categories = get_categories(available_only=True)
+    result = []
+    for cat in categories:
+        cat_dict = dict(cat)
+        cat_dict["items"] = [dict(i) for i in get_items(cat_dict["id"], available_only=True)]
+        result.append(cat_dict)
+    return result
+
+
 def create_item(
-    category_id: int, name_en: str, name_zh: str, price: int, sort_order: int = 0
+    category_id: int, name_en: str, name_zh: str, price: int, sort_order: int = 0, image_file: str | None = None
 ) -> dict:
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
-            """INSERT INTO items (category_id, name_en, name_zh, price, sort_order)
-               VALUES (%s, %s, %s, %s, %s) RETURNING *""",
-            (category_id, name_en, name_zh, price, sort_order),
+            """INSERT INTO items (category_id, name_en, name_zh, price, sort_order, image_file)
+               VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
+            (category_id, name_en, name_zh, price, sort_order, image_file),
         )
         return cur.fetchone()
 
 
 def update_item(item_id: int, **fields) -> dict | None:
-    allowed = {"name_en", "name_zh", "price", "available", "sort_order", "category_id"}
+    allowed = {"name_en", "name_zh", "price", "available", "sort_order", "category_id", "image_file"}
     fields = {k: v for k, v in fields.items() if k in allowed}
     if not fields:
         return get_item(item_id)

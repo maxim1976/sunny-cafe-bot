@@ -63,6 +63,7 @@ def taipei_time_filter(dt):
 # ── LINE SDK setup ────────────────────────────────────────────────────────────
 LINE_CHANNEL_SECRET = os.environ["LINE_CHANNEL_SECRET"]
 LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+LIFF_ID = os.getenv("LIFF_ID", "")
 
 configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -169,31 +170,6 @@ def _is_menu_request(text: str) -> bool:
     return text.lower().strip() in _MENU_TRIGGERS
 
 
-# ── Category triggers ─────────────────────────────────────────────────────────
-
-
-def _get_category_from_trigger(text: str) -> dict | None:
-    """Return category dict if text matches 'I'd like to order from {name_en}'."""
-    if not text.startswith("I'd like to order from "):
-        return None
-    name_en = text[len("I'd like to order from ") :]
-    cats = db.get_categories(available_only=True)
-    return next((c for c in cats if c["name_en"] == name_en), None)
-
-
-# ── Item trigger ──────────────────────────────────────────────────────────────
-
-
-def _get_item_id_from_trigger(text: str) -> int | None:
-    """Return item_id if text matches 'ADD:{id}'."""
-    if text.startswith("ADD:"):
-        try:
-            return int(text[4:])
-        except ValueError:
-            pass
-    return None
-
-
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -237,11 +213,6 @@ def handle_follow(event: FollowEvent):
                 "type": "flex",
                 "altText": "歡迎來到 Sunny Cafe！",
                 "contents": flex_menu.build_welcome_flex(),
-            },
-            {
-                "type": "flex",
-                "altText": "☀️ Sunny Cafe Menu",
-                "contents": flex_menu.build_menu_carousel(),
             },
         ],
     )
@@ -295,80 +266,11 @@ def handle_message(event: MessageEvent):
 
     # ── Menu ──────────────────────────────────────────────────────────────────
     if _is_menu_request(text):
-        _send(
-            reply_token,
-            [
-                {
-                    "type": "flex",
-                    "altText": "☀️ Sunny Cafe Menu",
-                    "contents": flex_menu.build_menu_header_bubble(),
-                },
-                {
-                    "type": "flex",
-                    "altText": "瀏覽菜單 Browse menu →",
-                    "contents": flex_menu.build_menu_carousel(),
-                },
-            ],
-        )
+        liff_url = f"https://liff.line.me/{LIFF_ID}"
+        _flex(reply_token, "☀️ 開啟菜單 / Open Menu", flex_menu.build_open_menu_bubble(liff_url))
         return
 
-    # ── Category selected ─────────────────────────────────────────────────────
-    cat = _get_category_from_trigger(text)
-    if cat:
-        bubble = flex_menu.build_item_selection_bubble(cat)
-        qr = flex_menu.build_item_quick_replies(cat, lang)
-        msg = {
-            "type": "flex",
-            "altText": f"{cat['name_zh']} — 請選擇品項",
-            "contents": bubble,
-            "quickReply": qr,
-        }
-        _send(reply_token, [msg])
-        return
-
-    # ── Item added to cart ────────────────────────────────────────────────────
-    item_id = _get_item_id_from_trigger(text)
-    if item_id is not None:
-        item = db.get_item(item_id)
-        if item and item["available"]:
-            db.cart_add(user_id, item_id)
-            cart = db.cart_get(user_id)
-            msg = {
-                "type": "flex",
-                "altText": f"Added: {item['name_en']}",
-                "contents": flex_menu.build_cart_bubble(cart, lang),
-                "quickReply": flex_menu.build_cart_actions_quick_reply(),
-            }
-            _send(reply_token, [msg])
-        else:
-            _text(reply_token, "Item not found / 找不到品項")
-        return
-
-    # ── Cart: add more ────────────────────────────────────────────────────────
-    if text == "繼續點餐":
-        _send(
-            reply_token,
-            [
-                {
-                    "type": "flex",
-                    "altText": "☀️ Sunny Cafe Menu",
-                    "contents": flex_menu.build_menu_carousel(),
-                },
-            ],
-        )
-        return
-
-    # ── Cart: checkout → open LIFF ────────────────────────────────────────────
-    if text == "結帳":
-        cart = db.cart_get(user_id)
-        if not cart:
-            _text(reply_token, "Your cart is empty.\n購物車是空的。")
-            return
-        bubble = flex_menu.build_checkout_bubble(cart, user_id, lang)
-        _flex(reply_token, "Confirm your order / 確認訂單", bubble)
-        return
-
-    # ── Cart: clear / cancel ──────────────────────────────────────────────────
+    # ── Cancel ────────────────────────────────────────────────────────────────
     if text in ("重新點餐", "取消訂單"):
         db.cart_clear(user_id)
         _text(

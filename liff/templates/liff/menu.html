@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>☀️ {{ info.get('name', 'Sunny Cafe') }}</title>
+  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+  <style>
+    :root {
+      --amber:  #C8A165;
+      --coffee: #6B4226;
+      --cream:  #F5E6CC;
+      --bg:     #FAF7F2;
+      --muted:  #888888;
+      --text:   #333333;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Screens ─────────────────────────────────────────── */
+    .screen { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
+    .screen.active { display: flex; }
+
+    /* ── Top bar ─────────────────────────────────────────── */
+    .top-bar {
+      background: var(--amber); color: white;
+      padding: 0.7rem 1rem;
+      display: flex; align-items: center; gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .top-bar .title { flex: 1; font-weight: 700; font-size: 1rem; }
+    .top-bar .subtitle { font-size: 0.72rem; opacity: 0.85; }
+    .btn-back {
+      background: none; border: none; color: white;
+      font-size: 1.4rem; line-height: 1; cursor: pointer;
+      padding: 0 0.5rem 0 0; flex-shrink: 0;
+    }
+    .btn-lang {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.5);
+      color: white; border-radius: 4px;
+      padding: 0.2rem 0.55rem; font-size: 0.75rem; cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ── Category tabs ───────────────────────────────────── */
+    .cat-tabs {
+      background: white;
+      border-bottom: 1px solid var(--cream);
+      display: flex; overflow-x: auto;
+      flex-shrink: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .cat-tabs::-webkit-scrollbar { display: none; }
+    .cat-tab {
+      white-space: nowrap; flex-shrink: 0;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.82rem; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+    }
+    .cat-tab.active { color: var(--coffee); border-bottom-color: var(--coffee); font-weight: 600; }
+
+    /* ── Menu scroll body ────────────────────────────────── */
+    .menu-body {
+      flex: 1; overflow-y: auto;
+      padding-bottom: 72px;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+
+    /* ── Category section ────────────────────────────────── */
+    .cat-section { padding: 0.65rem 0.65rem 0; }
+    .cat-heading {
+      font-size: 0.85rem; font-weight: 700; color: var(--coffee);
+      padding: 0.4rem 0 0.65rem;
+      border-bottom: 1px solid var(--cream);
+      margin-bottom: 0.65rem;
+    }
+    .cat-heading .cat-en { font-weight: 400; color: var(--muted); font-size: 0.75rem; }
+
+    /* ── Item grid ───────────────────────────────────────── */
+    .item-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.6rem; margin-bottom: 0.4rem;
+    }
+    .item-card {
+      background: white; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      display: flex; flex-direction: column;
+    }
+    .item-img {
+      width: 100%; aspect-ratio: 4 / 3;
+      background-size: cover; background-position: center;
+      background-color: var(--cream);
+    }
+    .item-img.no-img {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+    }
+    .item-body {
+      padding: 0.45rem 0.5rem 0.2rem;
+      flex: 1; display: flex; flex-direction: column;
+    }
+    .item-name-zh { font-size: 0.82rem; font-weight: 700; line-height: 1.25; }
+    .item-name-en { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+    .item-footer {
+      padding: 0.3rem 0.5rem 0.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .item-price { font-size: 0.82rem; font-weight: 700; color: var(--amber); }
+
+    /* ── Qty controls ────────────────────────────────────── */
+    .qty-controls { display: flex; align-items: center; gap: 0.25rem; }
+    .btn-circle {
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem; font-weight: 700; line-height: 1; flex-shrink: 0;
+    }
+    .btn-add  { background: var(--coffee); color: white; }
+    .btn-minus { background: var(--cream); color: var(--coffee); }
+    .btn-plus  { background: var(--coffee); color: white; }
+    .qty-num { font-size: 0.88rem; font-weight: 700; min-width: 16px; text-align: center; }
+
+    /* ── Floating cart bar ───────────────────────────────── */
+    #cart-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--coffee); color: white;
+      padding: 0.7rem 1rem;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.18);
+      transition: transform 0.25s ease;
+    }
+    #cart-bar.hidden { transform: translateY(100%); }
+    .cart-bar-left { display: flex; align-items: center; gap: 0.6rem; }
+    .cart-badge {
+      background: var(--amber); color: white;
+      border-radius: 50%; width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+    }
+    .cart-bar-total { font-weight: 700; font-size: 0.95rem; }
+    .cart-bar-label { font-size: 0.82rem; opacity: 0.9; }
+
+    /* ── Cart screen ─────────────────────────────────────── */
+    .cart-body { flex: 1; overflow-y: auto; padding: 0.65rem; }
+    .cart-empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); font-size: 0.9rem; }
+    .cart-item-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 0; border-bottom: 1px solid var(--cream);
+    }
+    .cart-item-row:last-child { border-bottom: none; }
+    .cart-item-info { flex: 1; min-width: 0; }
+    .cart-item-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cart-item-unit { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+    .cart-item-sub { font-size: 0.88rem; font-weight: 700; color: var(--amber); min-width: 50px; text-align: right; }
+    .btn-remove { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1rem; padding: 0.2rem 0.1rem; flex-shrink: 0; }
+
+    .cart-footer { border-top: 1px solid var(--cream); padding: 0.75rem; flex-shrink: 0; background: white; }
+    .discount-row { margin-bottom: 0.6rem; }
+    .discount-row select {
+      width: 100%; padding: 0.4rem 0.5rem;
+      border: 1.5px solid #dee2e6; border-radius: 6px;
+      font-size: 0.85rem; color: var(--text); background: white;
+    }
+    .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+    .total-label { font-weight: 600; font-size: 0.95rem; }
+    .total-amount { font-weight: 700; font-size: 1.05rem; color: var(--coffee); }
+    .btn-row { display: flex; gap: 0.5rem; }
+    .btn-secondary {
+      flex: 1; padding: 0.6rem;
+      border: 1.5px solid var(--coffee); background: white; color: var(--coffee);
+      border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary {
+      flex: 2; padding: 0.6rem;
+      background: var(--coffee); color: white; border: none;
+      border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+
+    /* ── Checkout screen ─────────────────────────────────── */
+    .checkout-body { flex: 1; overflow-y: auto; padding: 0.75rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 0.4rem; }
+    .form-control {
+      width: 100%; padding: 0.55rem 0.75rem;
+      border: 1.5px solid #dee2e6; border-radius: 8px; font-size: 0.95rem; color: var(--text);
+    }
+    .form-control:focus { outline: none; border-color: var(--coffee); }
+    .fulfill-cards { display: flex; gap: 0.45rem; }
+    .fulfill-card {
+      flex: 1; border: 2px solid #dee2e6; border-radius: 8px;
+      padding: 0.6rem 0.3rem; text-align: center; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .fulfill-card.selected { border-color: var(--coffee); background: var(--cream); }
+    .fulfill-icon { font-size: 1.25rem; }
+    .fulfill-label { font-size: 0.7rem; margin-top: 0.2rem; line-height: 1.3; color: var(--text); }
+    .fulfill-label .sub { color: var(--muted); }
+    .field-error { color: #dc3545; font-size: 0.78rem; margin-top: 0.25rem; display: none; }
+    .alert-danger {
+      background: #f8d7da; border: 1px solid #f5c2c7; color: #842029;
+      padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.82rem;
+      margin-bottom: 0.75rem; display: none;
+    }
+    .checkout-footer { padding: 0.75rem; flex-shrink: 0; }
+    .btn-submit {
+      width: 100%; padding: 0.8rem; background: var(--coffee);
+      color: white; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 1 — MENU
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-menu" class="screen active">
+
+  <div class="top-bar">
+    <div style="flex:1">
+      <div class="title">☀️ {{ info.get('name', 'Sunny Cafe') }}</div>
+      <div class="subtitle">花蓮 · Hualien</div>
+    </div>
+    <button class="btn-lang" id="langToggle" onclick="toggleLang()">EN</button>
+  </div>
+
+  <div class="cat-tabs" id="catTabs">
+    {% for cat in categories %}
+    <div class="cat-tab{% if loop.first %} active{% endif %}"
+         data-cat="{{ cat.id }}"
+         onclick="scrollToSection({{ cat.id }}, this)">
+      {{ cat.emoji }} <span class="tab-zh">{{ cat.name_zh }}</span><span class="tab-en hidden">{{ cat.name_en }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="menu-body" id="menuBody">
+    {% for cat in categories %}
+    <section class="cat-section" id="cat-{{ cat.id }}">
+      <div class="cat-heading">
+        {{ cat.emoji }} <span class="cat-zh">{{ cat.name_zh }}</span><span class="cat-en-label hidden"> {{ cat.name_en }}</span>
+        <span class="cat-en"> / <span class="cat-zh2 hidden">{{ cat.name_zh }}</span><span class="cat-en2">{{ cat.name_en }}</span></span>
+      </div>
+      <div class="item-grid">
+        {% for item in cat.items %}
+        <div class="item-card">
+          {% if item.image_file %}
+          <div class="item-img" style="background-image:url('{{ item.image_file }}')"></div>
+          {% else %}
+          <div class="item-img no-img">{{ cat.emoji }}</div>
+          {% endif %}
+          <div class="item-body">
+            <div class="item-name-zh" data-zh="{{ item.name_zh }}" data-en="{{ item.name_en }}">{{ item.name_zh }}</div>
+            <div class="item-name-en lang-en-show">{{ item.name_en }}</div>
+          </div>
+          <div class="item-footer">
+            <div class="item-price">NT${{ item.price }}</div>
+            <div class="qty-controls" id="qc-{{ item.id }}">
+              <button class="btn-circle btn-add" onclick="addItem({{ item.id }})">+</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <div id="cart-bar" class="hidden" onclick="goToCart()">
+    <div class="cart-bar-left">
+      <div class="cart-badge" id="cartBadge">0</div>
+      <div class="cart-bar-total" id="cartBarTotal">NT$0</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.35rem">
+      <span class="cart-bar-label">購物車 / Cart</span>
+      <span style="font-size:1.1rem">›</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 2 — CART
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-cart" class="screen">
+
+  <div class="top-bar">
+    <button class="btn-back" onclick="goToMenu()">‹</button>
+    <div class="title">🛒 購物車 / Cart</div>
+  </div>
+
+  <div class="cart-body" id="cartBody"></div>
+
+  <div class="cart-footer">
+    {% if discounts %}
+    <div class="discount-row">
+      <select id="discountSelect" onchange="applyDiscount()">
+        <option value="">— 不使用折扣 / No discount —</option>
+        {% for d in discounts %}
+        <option value="{{ d.id }}" data-type="{{ d.type }}" data-value="{{ d.value }}">
+          {{ d.name }} ({% if d.type == 'percent' %}{{ d.value }}% off{% else %}NT${{ d.value }} off{% endif %})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="total-row">
+      <span class="total-label">合計 Total</span>
+      <span class="total-amount" id="cartTotal">NT$0</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="goToMenu()">＋ 繼續 / More</button>
+      <button class="btn-primary" onclick="goToCheckout()">結帳 / Checkout →</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCREEN 3 — CHECKOUT
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-checkout" class="screen">
+
+  <div class="top-bar">
+    <button class="btn-back" onclick="goToCart()">‹</button>
+    <div class="title">填寫資料 / Details</div>
+  </div>
+
+  <div class="checkout-body">
+
+    <div class="form-group">
+      <div class="form-label">取餐方式 / How would you like your order?</div>
+      <div class="fulfill-cards">
+        <div class="fulfill-card" data-val="dine-in" onclick="selectFulfillment(this)">
+          <div class="fulfill-icon">🏠</div>
+          <div class="fulfill-label">內用<br><span class="sub">Dine-in</span></div>
+        </div>
+        <div class="fulfill-card" data-val="takeaway" onclick="selectFulfillment(this)">
+          <div class="fulfill-icon">🛍</div>
+          <div class="fulfill-label">外帶<br><span class="sub">Takeaway</span></div>
+        </div>
+        <div class="fulfill-card" data-val="delivery" onclick="selectFulfillment(this)">
+          <div class="fulfill-icon">🛵</div>
+          <div class="fulfill-label">外送<br><span class="sub">Delivery</span></div>
+        </div>
+      </div>
+      <div class="field-error" id="fulfillErr">請選擇取餐方式 / Please select a method</div>
+    </div>
+
+    <div class="form-group hidden" id="timeGroup">
+      <label class="form-label" id="timeLabel">時間 / Time</label>
+      <input type="time" class="form-control" id="pickupTime">
+    </div>
+
+    <div class="form-group hidden" id="addrGroup">
+      <label class="form-label">地址 / Delivery address</label>
+      <textarea class="form-control" id="addressInput" rows="2"
+        placeholder="請輸入完整地址 / Full delivery address"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">姓名 / Name</label>
+      <input type="text" class="form-control" id="customerName"
+        placeholder="取票用真實姓名 / Real name for the ticket">
+      <div class="field-error" id="nameErr">請輸入姓名 / Name is required</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">電話 / Phone</label>
+      <input type="tel" class="form-control" id="phoneInput"
+        placeholder="例: 0912-345-678">
+      <div class="field-error" id="phoneErr">請輸入有效電話 / Valid phone required</div>
+    </div>
+
+    <div class="alert-danger" id="submitErr"></div>
+  </div>
+
+  <div class="checkout-footer">
+    <button class="btn-submit" id="submitBtn" onclick="submitOrder()">
+      送出訂單 / Place Order
+    </button>
+  </div>
+</div>
+
+
+<script>
+// ── Server data ──────────────────────────────────────────────
+const MENU = {{ categories | tojson }};
+const DISCOUNTS = {{ discounts | tojson }};
+const LIFF_ID = "{{ liff_id }}";
+
+// ── Build item lookup map ────────────────────────────────────
+const itemMap = {};
+MENU.forEach(cat => cat.items.forEach(item => { itemMap[item.id] = item; }));
+
+// ── State ────────────────────────────────────────────────────
+const cart = {};        // { itemId: qty }
+let liffReady = false;
+let userProfile = null;
+let selectedFulfillment = null;
+let discountId = null;
+let discountAmt = 0;
+let lang = "zh";
+
+// ── LIFF init ────────────────────────────────────────────────
+liff.init({ liffId: LIFF_ID })
+  .then(() => liff.getProfile())
+  .then(profile => { userProfile = profile; liffReady = true; })
+  .catch(err => { console.warn("LIFF init:", err); });
+
+// ── Screen navigation ────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function goToMenu()     { showScreen("screen-menu"); }
+function goToCart()     { renderCart(); showScreen("screen-cart"); }
+function goToCheckout() { if (cartCount() > 0) showScreen("screen-checkout"); }
+
+// ── Cart math ────────────────────────────────────────────────
+function cartCount()    { return Object.values(cart).reduce((s, q) => s + q, 0); }
+function cartSubtotal() { return Object.entries(cart).reduce((s, [id, q]) => s + (itemMap[id]?.price || 0) * q, 0); }
+function cartFinal()    { return Math.max(0, cartSubtotal() - discountAmt); }
+
+// ── Add / remove ─────────────────────────────────────────────
+function addItem(id) {
+  cart[id] = (cart[id] || 0) + 1;
+  updateCardQty(id);
+  updateCartBar();
+}
+function removeOneItem(id) {
+  if (!cart[id]) return;
+  cart[id]--;
+  if (cart[id] <= 0) delete cart[id];
+  updateCardQty(id);
+  updateCartBar();
+}
+function deleteItem(id) {
+  delete cart[id];
+  updateCardQty(id);
+  updateCartBar();
+  renderCart();
+}
+
+function updateCardQty(id) {
+  const qc = document.getElementById(`qc-${id}`);
+  if (!qc) return;
+  const qty = cart[id] || 0;
+  qc.innerHTML = qty === 0
+    ? `<button class="btn-circle btn-add" onclick="addItem(${id})">+</button>`
+    : `<button class="btn-circle btn-minus" onclick="removeOneItem(${id})">−</button>
+       <span class="qty-num">${qty}</span>
+       <button class="btn-circle btn-plus"  onclick="addItem(${id})">+</button>`;
+}
+
+// ── Cart bar ─────────────────────────────────────────────────
+function updateCartBar() {
+  const bar = document.getElementById("cart-bar");
+  const n   = cartCount();
+  if (n === 0) { bar.classList.add("hidden"); return; }
+  bar.classList.remove("hidden");
+  document.getElementById("cartBadge").textContent  = n;
+  document.getElementById("cartBarTotal").textContent = `NT$${cartSubtotal()}`;
+}
+
+// ── Render cart ──────────────────────────────────────────────
+function renderCart() {
+  const body    = document.getElementById("cartBody");
+  const entries = Object.entries(cart).filter(([, q]) => q > 0);
+
+  if (entries.length === 0) {
+    body.innerHTML = `<div class="cart-empty">購物車是空的<br><small>Cart is empty</small></div>`;
+  } else {
+    body.innerHTML = entries.map(([id, qty]) => {
+      const item = itemMap[id];
+      const name = lang === "en" ? item.name_en : item.name_zh;
+      return `
+        <div class="cart-item-row">
+          <div class="cart-item-info">
+            <div class="cart-item-name">${name}</div>
+            <div class="cart-item-unit">NT$${item.price} × ${qty}</div>
+          </div>
+          <div class="qty-controls" style="gap:0.3rem">
+            <button class="btn-circle btn-minus" onclick="removeOneItem(${id});renderCart()">−</button>
+            <span class="qty-num">${qty}</span>
+            <button class="btn-circle btn-plus"  onclick="addItem(${id});renderCart()">+</button>
+          </div>
+          <div class="cart-item-sub">NT$${item.price * qty}</div>
+          <button class="btn-remove" onclick="deleteItem(${id})" title="Remove">✕</button>
+        </div>`;
+    }).join("");
+  }
+  updateCartTotal();
+}
+
+// ── Discount ─────────────────────────────────────────────────
+function applyDiscount() {
+  const sel = document.getElementById("discountSelect");
+  if (!sel) return;
+  const opt  = sel.selectedOptions[0];
+  const type = opt.dataset.type;
+  const val  = parseInt(opt.dataset.value) || 0;
+  discountId  = sel.value || null;
+  discountAmt = !type ? 0
+    : type === "percent" ? Math.floor(cartSubtotal() * val / 100)
+    : Math.min(val, cartSubtotal());
+  updateCartTotal();
+}
+
+function updateCartTotal() {
+  const el = document.getElementById("cartTotal");
+  if (el) el.textContent = `NT$${cartFinal()}`;
+}
+
+// ── Category tab scrolling ────────────────────────────────────
+function scrollToSection(catId, tabEl) {
+  document.querySelectorAll(".cat-tab").forEach(t => t.classList.remove("active"));
+  tabEl.classList.add("active");
+  const section   = document.getElementById(`cat-${catId}`);
+  const menuBody  = document.getElementById("menuBody");
+  if (section && menuBody) {
+    const top = section.getBoundingClientRect().top - menuBody.getBoundingClientRect().top;
+    menuBody.scrollTop += top;
+  }
+}
+
+// ── Language toggle ───────────────────────────────────────────
+function toggleLang() {
+  lang = lang === "zh" ? "en" : "zh";
+  const btn = document.getElementById("langToggle");
+  btn.textContent = lang === "zh" ? "EN" : "中文";
+
+  // Item name primary labels
+  document.querySelectorAll(".item-name-zh").forEach(el => {
+    el.textContent = lang === "zh" ? el.dataset.zh : el.dataset.en;
+  });
+  // Item name secondary labels
+  document.querySelectorAll(".lang-en-show").forEach(el => {
+    el.style.display = lang === "zh" ? "" : "none";
+  });
+  // Category tab labels
+  document.querySelectorAll(".cat-tab").forEach(tab => {
+    tab.querySelector(".tab-zh").classList.toggle("hidden", lang === "en");
+    tab.querySelector(".tab-en").classList.toggle("hidden", lang === "zh");
+  });
+}
+
+// ── Fulfillment selection ─────────────────────────────────────
+function selectFulfillment(card) {
+  document.querySelectorAll(".fulfill-card").forEach(c => c.classList.remove("selected"));
+  card.classList.add("selected");
+  selectedFulfillment = card.dataset.val;
+  document.getElementById("fulfillErr").style.display = "none";
+
+  const timeGroup = document.getElementById("timeGroup");
+  const addrGroup = document.getElementById("addrGroup");
+  const timeLabel = document.getElementById("timeLabel");
+
+  timeGroup.classList.toggle("hidden", selectedFulfillment === "delivery");
+  addrGroup.classList.toggle("hidden", selectedFulfillment !== "delivery");
+
+  timeLabel.textContent = selectedFulfillment === "dine-in"
+    ? (lang === "en" ? "Arrival time" : "到店時間")
+    : (lang === "en" ? "Pickup time"  : "取餐時間");
+}
+
+// ── Submit ────────────────────────────────────────────────────
+async function submitOrder() {
+  const btn    = document.getElementById("submitBtn");
+  const errDiv = document.getElementById("submitErr");
+  errDiv.style.display = "none";
+
+  let valid = true;
+
+  if (!selectedFulfillment) {
+    document.getElementById("fulfillErr").style.display = "block";
+    valid = false;
+  }
+  const name = document.getElementById("customerName").value.trim();
+  if (!name) {
+    document.getElementById("nameErr").style.display = "block";
+    valid = false;
+  } else {
+    document.getElementById("nameErr").style.display = "none";
+  }
+  const phone = document.getElementById("phoneInput").value.trim();
+  if (!/^[\d\-\+\(\)\s]{7,20}$/.test(phone)) {
+    document.getElementById("phoneErr").style.display = "block";
+    valid = false;
+  } else {
+    document.getElementById("phoneErr").style.display = "none";
+  }
+  if (cartCount() === 0) {
+    errDiv.textContent = lang === "en" ? "Your cart is empty." : "購物車是空的。";
+    errDiv.style.display = "block";
+    valid = false;
+  }
+  if (!valid) return;
+
+  if (!liffReady || !userProfile) {
+    errDiv.textContent = lang === "en" ? "LINE not ready — please try again." : "LINE 未就緒，請重試。";
+    errDiv.style.display = "block";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = lang === "en" ? "Submitting…" : "送出中…";
+
+  const payload = {
+    access_token:  liff.getAccessToken(),
+    display_name:  userProfile.displayName || "",
+    customer_name: name,
+    phone,
+    fulfillment:   selectedFulfillment,
+    pickup_time:   document.getElementById("pickupTime")?.value || "",
+    address:       document.getElementById("addressInput")?.value.trim() || "",
+    cart:          Object.entries(cart).filter(([,q]) => q > 0).map(([id, qty]) => ({ item_id: parseInt(id), qty })),
+    discount_id:   discountId || "",
+    lang,
+  };
+
+  try {
+    const res  = await fetch("/liff/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      liff.closeWindow();
+    } else {
+      errDiv.textContent = json.error || (lang === "en" ? "Something went wrong." : "發生錯誤，請重試。");
+      errDiv.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = lang === "en" ? "Place Order" : "送出訂單 / Place Order";
+    }
+  } catch (e) {
+    errDiv.textContent = lang === "en" ? "Network error — please try again." : "網路錯誤，請重試。";
+    errDiv.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = lang === "en" ? "Place Order" : "送出訂單 / Place Order";
+  }
+}
+</script>
+</body>
+</html>

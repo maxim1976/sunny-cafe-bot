@@ -56,6 +56,23 @@ def _verify_line_token(access_token: str) -> str | None:
         return None
 
 
+# ── LIFF menu page (primary ordering UI) ─────────────────────────────────────
+
+
+@liff_bp.route("/liff/menu")
+def menu():
+    categories = db.get_menu_for_liff()
+    info = db.get_store_info()
+    discounts = db.get_active_discounts()
+    return render_template(
+        "liff/menu.html",
+        categories=categories,
+        info=info,
+        discounts=discounts,
+        liff_id=os.getenv("LIFF_ID", ""),
+    )
+
+
 # ── LIFF checkout page ────────────────────────────────────────────────────────
 
 
@@ -134,7 +151,30 @@ def submit():
     if fulfillment in ("dine-in", "takeaway") and not pickup_time:
         return jsonify({"ok": False, "error": "Time is required"}), 400
 
-    cart = db.cart_get(user_id)
+    # Build cart from payload — always verify prices server-side
+    cart_payload = data.get("cart", [])
+    if not cart_payload:
+        return jsonify({"ok": False, "error": "Cart is empty"}), 400
+
+    cart = []
+    for entry in cart_payload:
+        try:
+            item_id = int(entry["item_id"])
+            qty = int(entry["qty"])
+        except (KeyError, ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Invalid cart data"}), 400
+        if qty <= 0:
+            continue
+        item = db.get_item(item_id)
+        if not item or not item["available"]:
+            continue
+        cart.append({
+            "name_en": item["name_en"],
+            "name_zh": item["name_zh"],
+            "price": item["price"],
+            "qty": qty,
+        })
+
     if not cart:
         return jsonify({"ok": False, "error": "Cart is empty"}), 400
 
@@ -176,8 +216,6 @@ def submit():
             for i in cart
         ],
     )
-    db.cart_clear(user_id)
-
     # Print ticket
     order_items = db.get_order_items(order["id"])
     printer.print_order_ticket(
