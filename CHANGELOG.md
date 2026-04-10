@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-04-10 — LIFF mini-app menu (replaces Flex carousel)
+
+Complete replacement of the chat-based ordering flow with a single LIFF web app.
+
+### What changed
+
+- **New primary ordering UI** — `/liff/menu` is a 3-screen LIFF mini-app:
+  - Screen 1 (Menu): sticky category tabs, 2-column item grid with photos, inline ➕/➖ qty controls, floating cart bar
+  - Screen 2 (Cart): full cart review, qty adjustments, live discount calculation
+  - Screen 3 (Checkout): fulfillment tap-cards, conditional fields, name/phone, submit
+
+- **Pure JS cart** — cart lives in the LIFF session only, never written to DB during browsing. On submit, `[{item_id, qty}]` is sent to the server which re-fetches all prices from DB (client prices never trusted).
+
+- **Product images** — `image_file TEXT` column added to `items` table (auto-migrated on startup). Seeded with Unsplash photo URLs via `seed_item_images.py`.
+
+- **Rich menu updated** — left button now opens LIFF URI directly instead of sending a `"menu"` text message. Requires `LIFF_ID` in `.env` when running `setup_richmenu.py`.
+
+- **Chat simplified** — removed carousel, category picker, ADD: item handler, 結帳, 繼續點餐 handlers from `app.py`. Menu triggers now send a single "Open Menu" Flex bubble with a LIFF URI button.
+
+- **`/liff/submit` updated** — accepts `cart` array in payload instead of reading from `carts` table. `db.cart_clear()` call removed.
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `liff/templates/liff/menu.html` | 3-screen LIFF mini-app |
+| `seed_item_images.py` | One-time script to assign Unsplash URLs to items |
+
+### Files changed
+
+| File | What changed |
+|---|---|
+| `db.py` | `image_file` column on `items`, `get_menu_for_liff()`, `create_item`/`update_item` support images |
+| `liff/routes.py` | New `/liff/menu` route; submit accepts JS cart payload |
+| `app.py` | Menu → LIFF button; removed all chat-based ordering handlers |
+| `flex_menu.py` | Added `build_open_menu_bubble(liff_url)` |
+| `setup_richmenu.py` | Left button uses URI action (LIFF) when `LIFF_ID` is set |
+| `CLAUDE.md` | Updated to reflect new architecture |
+
 ## 2026-04-08 — Security hardening
 
 Security audit and fixes across the entire codebase.

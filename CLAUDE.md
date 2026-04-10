@@ -23,19 +23,19 @@ Admin web panel for the owner to manage everything without touching code.
 
 ## Key files
 
-| File                | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `db.py`             | All PostgreSQL access — connection pool, every query lives here |
-| `flow.py`           | Order state machine — cart → LIFF → confirm → done              |
-| `flex_menu.py`      | Builds all Flex Message JSON (reads live data from DB)          |
-| `app.py`            | Flask webhook + message routing                                 |
-| `bot.py`            | Claude FAQ module — only loaded if CLAUDE_ENABLED=true          |
-| `printer.py`        | Order ticket formatting + ESC/POS printing                      |
-| `admin/`            | Flask blueprint — owner admin panel at /admin/                  |
-| `liff/`             | LIFF checkout form at /liff/checkout (served by Flask)          |
-| `landing/`          | Static landing page at /                                        |
-| `setup_richmenu.py` | One-time script to register LINE rich menu                      |
-| `images/`           | Static images — uploaded once, served from /images/             |
+| File                | Purpose                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `db.py`             | All PostgreSQL access — connection pool, every query lives here                |
+| `flex_menu.py`      | Flex Message JSON builders — welcome, open-menu button, order confirmation     |
+| `app.py`            | Flask webhook + message routing                                                |
+| `bot.py`            | Claude FAQ module — only loaded if CLAUDE_ENABLED=true                         |
+| `printer.py`        | Order ticket formatting + ESC/POS printing                                     |
+| `admin/`            | Flask blueprint — owner admin panel at /admin/                                 |
+| `liff/`             | LIFF mini-app — menu at /liff/menu, submit at /liff/submit                     |
+| `landing/`          | Static landing page at /                                                       |
+| `setup_richmenu.py` | One-time script to register LINE rich menu (left button opens LIFF URI)        |
+| `seed_item_images.py` | One-time script to assign Unsplash photo URLs to menu items                  |
+| `images/`           | Static images — category photos + store photos, served from /images/           |
 
 ## PostgreSQL schema
 
@@ -58,7 +58,8 @@ CREATE TABLE items (
     name_zh     TEXT    NOT NULL,
     price       INTEGER NOT NULL,       -- NT$
     available   BOOLEAN DEFAULT TRUE,
-    sort_order  INTEGER DEFAULT 0
+    sort_order  INTEGER DEFAULT 0,
+    image_file  TEXT                    -- full Unsplash URL (seeded by seed_item_images.py)
 );
 
 -- ── Discounts ────────────────────────────────────────────────────────────────
@@ -143,48 +144,52 @@ CREATE INDEX ON messages(user_id);
 ```
 Incoming LINE message
   ├─ Language toggle ("切換語言")       → toggle user_prefs.lang
-  ├─ Menu triggers ("menu", "菜單" …)  → show menu carousel
-  ├─ Category selected                 → show item picker + quick replies
-  ├─ Item selected ("我要點 {zh}")      → cart_add → show cart bubble
-  ├─ "繼續點餐"                         → show menu carousel
-  ├─ "結帳"                            → show cart summary + open LIFF button
-  ├─ "重新點餐"                         → clear cart
-  ├─ "取消訂單"                         → clear cart, cancel message
-  ├─ "確認" / "confirm"                → finalize order, print ticket
+  ├─ Menu triggers ("menu", "菜單" …)  → send "Open Menu" Flex bubble (URI → LIFF)
+  ├─ "重新點餐" / "取消訂單"             → cancel message
+  ├─ "確認" / "confirm"                → acknowledge (order already saved by LIFF)
   └─ Everything else:
       ├─ CLAUDE_ENABLED=true           → bot.get_reply() → Claude FAQ
       └─ CLAUDE_ENABLED=false          → "Please use the menu to order"
 ```
 
-## LIFF checkout flow
+All browsing, cart management, and checkout happen inside the LIFF mini-app.
+Chat is only used for the entry point (menu button) and post-order confirmation.
 
-Replaces all chat-based data collection (name, phone, fulfillment, etc.)
+## LIFF mini-app flow (primary ordering UI)
 
-1. Customer taps **✅ 結帳 / Checkout** → cart summary shown with a
-   **"Fill in details"** button that opens the LIFF URL
-2. LIFF page (`/liff/checkout?user_id=...`) loads inside LINE browser:
-   - Fulfillment selector (Dine-in / Takeaway / Delivery) — radio buttons
-   - Name field
-   - Phone field
-   - Pickup time (shown only if Takeaway)
-   - Address (shown only if Delivery)
-   - Active discount selector (if any)
-   - Order summary preview + total
-   - Submit button
-3. On submit → JS sends `liff.getAccessToken()` + form data →
-   POST `/liff/submit` → server verifies token via LINE API →
-   extracts real `user_id` → saves order to DB →
-   sends LINE push message with order confirmation Flex bubble →
-   LIFF closes automatically
-4. Customer sees confirmation in chat with Confirm / Cancel quick replies
-5. Confirm → order status = confirmed, ticket printed
+A single LIFF web app replaces the Flex carousel and all chat-based ordering.
+Served at `/liff/menu`, opened via rich menu button or "Open Menu" bubble in chat.
 
-Benefits over chat-based collection:
+### Three screens (one page, JS-managed transitions)
 
-- Single form, one submit — no back-and-forth
-- Proper validation (phone format, required fields)
-- Conditional fields (address only for delivery)
-- No state machine needed for data collection
+**Screen 1 — Menu**
+- Sticky category tabs + scrollable 2-column item grid
+- Each card: photo, bilingual name, price, ➕ button
+- Quantity ➖/number/➕ controls appear inline after first tap
+- Floating cart bar at bottom (hidden when cart empty)
+
+**Screen 2 — Cart**
+- Full cart with per-item ➖/➕ and remove
+- Live discount selector (if active discounts exist)
+- Running total updated in real time
+- "Continue Shopping" + "Checkout" buttons
+
+**Screen 3 — Checkout**
+- Fulfillment tap-cards (🏠 Dine-in / 🛍 Takeaway / 🛵 Delivery)
+- Conditional fields: time for dine-in/takeaway, address for delivery
+- Name + phone with inline validation
+- Submit → POST `/liff/submit` → LIFF closes → confirmation in chat
+
+### Cart architecture
+- **Pure JS cart** — lives only in the LIFF session (no DB writes while browsing)
+- On submit, cart payload `[{item_id, qty}]` sent to server
+- Server re-fetches all prices from DB — client prices are never trusted
+- No `db.cart_clear()` needed (cart was never written to DB)
+
+### Key route
+- `/liff/menu` — serves the full 3-screen app (replaces `/liff/checkout` as primary)
+- `/liff/checkout` — kept for backwards compatibility but no longer the main flow
+- `/liff/submit` — unchanged endpoint, now accepts `cart` array in payload
 
 ## Claude FAQ module (optional)
 
@@ -292,7 +297,9 @@ python app.py
 
 - `db.py` is the ONLY file that touches the database — no raw SQL elsewhere
 - Menu data lives in PostgreSQL — never hardcode items or prices in Python
-- LIFF handles all structured data collection — no chat-based state machine for ordering
+- LIFF mini-app handles all ordering — no chat-based cart or checkout state machine
+- Cart is pure JS in the LIFF session — never written to DB during browsing
+- Server always re-fetches item prices from DB on submit — never trust client prices
 - Claude never participates in ordering — FAQ only, and only if CLAUDE_ENABLED=true
 - Admin panel requires Basic Auth — never run without ADMIN_USER/ADMIN_PASSWORD
 - Never commit `.env` — all secrets in Railway environment
