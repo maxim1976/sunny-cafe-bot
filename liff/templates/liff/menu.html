@@ -248,7 +248,7 @@
         <span class="cat-en"> / <span class="cat-zh2 hidden">{{ cat.name_zh }}</span><span class="cat-en2">{{ cat.name_en }}</span></span>
       </div>
       <div class="item-grid">
-        {% for item in cat.items %}
+        {% for item in cat.menu_items %}
         <div class="item-card">
           {% if item.image_file %}
           <div class="item-img" style="background-image:url('{{ item.image_file }}')"></div>
@@ -397,7 +397,7 @@ const LIFF_ID = "{{ liff_id }}";
 
 // ── Build item lookup map ────────────────────────────────────
 const itemMap = {};
-MENU.forEach(cat => cat.items.forEach(item => { itemMap[item.id] = item; }));
+MENU.forEach(cat => cat.menu_items.forEach(item => { itemMap[item.id] = item; }));
 
 // ── State ────────────────────────────────────────────────────
 const cart = {};        // { itemId: qty }

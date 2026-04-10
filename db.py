@@ -253,12 +253,27 @@ def get_all_items(available_only: bool = True) -> list[dict]:
 
 def get_menu_for_liff() -> list[dict]:
     """Return available categories with their items nested — for the LIFF menu page."""
-    categories = get_categories(available_only=True)
     result = []
-    for cat in categories:
-        cat_dict = dict(cat)
-        cat_dict["items"] = [dict(i) for i in get_items(cat_dict["id"], available_only=True)]
-        result.append(cat_dict)
+    for cat in get_categories(available_only=True):
+        entry = {
+            "id":         cat["id"],
+            "name_en":    cat["name_en"],
+            "name_zh":    cat["name_zh"],
+            "emoji":      cat["emoji"],
+            "image_file": cat["image_file"],
+            "sort_order": cat["sort_order"],
+            "menu_items": [
+                {
+                    "id":         item["id"],
+                    "name_en":    item["name_en"],
+                    "name_zh":    item["name_zh"],
+                    "price":      item["price"],
+                    "image_file": item["image_file"],
+                }
+                for item in get_items(cat["id"], available_only=True)
+            ],
+        }
+        result.append(entry)
     return result
 
 
