@@ -2,10 +2,14 @@
 
 ## Project overview
 
-LINE ordering bot for a café in Hualien, Taiwan.
-Flask webhook on Railway, PostgreSQL database, Flex Message UI for browsing,
-LIFF (LINE Front-end Framework) web form for checkout, optional Claude FAQ module.
-Admin web panel for the owner to manage everything without touching code.
+**Product**: 花蓮Vibe數位工作室 sells custom LINE ordering bots to F&B businesses in Taiwan.
+**Demo**: Sunny Cafe Bot (`@839efdgh`) is the live demo — a fully working café ordering system.
+**Sales channel**: The LINE bot itself acts as the sales AI — prospects chat with it, it explains
+the product, collects client intake (menu, brand, operations), and notifies the owner when ready.
+**Website**: hualienbot.com — product marketing page with pricing, features, live demo QR code.
+
+Stack: Flask webhook on Railway, PostgreSQL, LIFF mini-app for ordering,
+Claude AI sales assistant in LINE chat, admin web panel per client.
 
 ## Stack
 
@@ -28,7 +32,7 @@ Admin web panel for the owner to manage everything without touching code.
 | `db.py`             | All PostgreSQL access — connection pool, every query lives here                |
 | `flex_menu.py`      | Flex Message JSON builders — welcome, open-menu button, order confirmation     |
 | `app.py`            | Flask webhook + message routing                                                |
-| `bot.py`            | Claude FAQ module — only loaded if CLAUDE_ENABLED=true                         |
+| `bot.py`            | Claude sales AI — bilingual sales agent, intake collector, lead notifier       |
 | `printer.py`        | Order ticket formatting + ESC/POS printing                                     |
 | `admin/`            | Flask blueprint — owner admin panel at /admin/                                 |
 | `liff/`             | LIFF mini-app — menu at /liff/menu, submit at /liff/submit                     |
@@ -148,8 +152,8 @@ Incoming LINE message
   ├─ "重新點餐" / "取消訂單"             → cancel message
   ├─ "確認" / "confirm"                → acknowledge (order already saved by LIFF)
   └─ Everything else:
-      ├─ CLAUDE_ENABLED=true           → bot.get_reply() → Claude FAQ
-      └─ CLAUDE_ENABLED=false          → "Please use the menu to order"
+      ├─ CLAUDE_ENABLED=true           → bot.get_reply() → Claude sales AI
+      └─ CLAUDE_ENABLED=false          → static invite to try demo / contact us
 ```
 
 All browsing, cart management, and checkout happen inside the LIFF mini-app.
@@ -191,14 +195,19 @@ Served at `/liff/menu`, opened via rich menu button or "Open Menu" bubble in cha
 - `/liff/checkout` — kept for backwards compatibility but no longer the main flow
 - `/liff/submit` — unchanged endpoint, now accepts `cart` array in payload
 
-## Claude FAQ module (optional)
+## Claude sales AI module
 
 - Enabled by setting `CLAUDE_ENABLED=true` in Railway env vars
-- Disabled by default — bot works fully without Anthropic API key
-- When enabled: handles free-text questions only (menu questions, hours, location)
-- System prompt built dynamically from DB (menu, store_info, active posts)
-- Never participates in ordering — no name/phone/fulfillment collection
-- Conversation history stored in `messages` table
+- Disabled by default — bot works without Anthropic API key (returns a static invite)
+- When enabled: acts as a **bilingual sales agent** for 花蓮Vibe數位工作室
+- Explains product, pricing, tech stack (plain language), setup process
+- Directs prospects to type "菜單" to try the live LIFF ordering demo
+- Collects client intake conversationally: business name, city, type, menu categories,
+  item list, brand colors, vibe/style, store photos, fulfillment needs, LINE Pay, AI add-on
+- Handoff: when prospect is ready, includes `[[NOTIFY_OWNER]]` marker in reply
+  → `get_reply()` strips marker, fires LINE push to `OWNER_LINE_USER_ID`
+- System prompt: static `SALES_PROMPT` constant (no DB queries needed)
+- Conversation history stored in `messages` table (per LINE user_id)
 
 ## Admin panel (`/admin/` blueprint)
 
@@ -257,8 +266,9 @@ BASE_URL                  # e.g. https://web-production-22461.up.railway.app
 FLASK_SECRET_KEY          # required — stable secret for sessions + CSRF
 ADMIN_USER                # required — app crashes without it
 ADMIN_PASSWORD            # required — app crashes without it
-CLAUDE_ENABLED            # optional — 'true' to enable FAQ module
+CLAUDE_ENABLED            # optional — 'true' to enable sales AI module
 ANTHROPIC_API_KEY         # optional — only needed if CLAUDE_ENABLED=true
+OWNER_LINE_USER_ID        # optional — your personal LINE user ID for lead notifications
 PRINTER_IP                # optional
 PRINTER_PORT              # optional, default 9100
 PORT                      # injected by Railway
@@ -300,7 +310,7 @@ python app.py
 - LIFF mini-app handles all ordering — no chat-based cart or checkout state machine
 - Cart is pure JS in the LIFF session — never written to DB during browsing
 - Server always re-fetches item prices from DB on submit — never trust client prices
-- Claude never participates in ordering — FAQ only, and only if CLAUDE_ENABLED=true
+- Claude is a sales agent, not an ordering assistant — never collects food orders in chat
 - Admin panel requires Basic Auth — never run without ADMIN_USER/ADMIN_PASSWORD
 - Never commit `.env` — all secrets in Railway environment
 - `FLASK_SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASSWORD` must be set — app crashes without them

@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026-04-10 — Sales AI bot (LINE chat becomes sales channel)
+
+Pivot: Sunny Cafe bot is now a demo for selling LINE bots to F&B businesses.
+The LINE chat (`@839efdgh`) acts as a bilingual sales AI — explains the product,
+collects client intake, and notifies the owner when a prospect is ready to proceed.
+The LIFF mini-app ordering system stays live as the demo experience.
+
+### What changed
+
+- **`bot.py`** — full rewrite as sales agent:
+  - `SALES_PROMPT` replaces café FAQ system prompt — covers product overview, pricing
+    (setup NT$3k–5k, monthly NT$800–1.5k, AI add-on, LINE Pay), tech explanation in
+    plain language, setup process, intake checklist, handoff rule
+  - `_build_prompt()` simplified — static prompt, no DB queries needed
+  - `_notify_owner()` — pushes LINE message to `OWNER_LINE_USER_ID` when lead is ready
+  - Handoff detection: AI includes `[[NOTIFY_OWNER]]` + summary in reply;
+    `get_reply()` strips marker and fires owner push notification
+  - `max_tokens` raised 512 → 1024
+  - Static fallback reply (CLAUDE_ENABLED=false) updated to sales invite
+
+- **`app.py`** — two changes:
+  - Follow event: replaced café Flex welcome with bilingual sales intro text
+    directing new contacts to type 菜單 for the live demo
+  - Removed first-message menu carousel (not relevant for prospects)
+
+- **`CLAUDE.md`** — updated project overview, `bot.py` description, Claude module
+  section, architecture diagram, env vars, rules
+
+### New env var
+
+| Variable | Purpose |
+|---|---|
+| `OWNER_LINE_USER_ID` | Your personal LINE user ID — receives lead notifications |
+
+### No schema changes
+
+`messages` table continues to store conversation history per `user_id` unchanged.
+
+### LIFF demo unchanged
+
+`/liff/menu`, `/liff/submit`, all ordering logic, admin panel — untouched.
+Prospects type "菜單" → full ordering experience as before.
+
 ## 2026-04-10 — LIFF mini-app menu (replaces Flex carousel)
 
 Complete replacement of the chat-based ordering flow with a single LIFF web app.
