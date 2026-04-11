@@ -210,13 +210,21 @@ def handle_follow(event: FollowEvent):
         event.reply_token,
         [
             {
-                "type": "flex",
-                "altText": "歡迎來到 Sunny Cafe！",
-                "contents": flex_menu.build_welcome_flex(),
-            },
+                "type": "text",
+                "text": (
+                    "👋 您好！歡迎來到花蓮Vibe數位工作室！\n\n"
+                    "我們為咖啡廳、餐廳、飲料店打造 LINE AI 點餐機器人。\n\n"
+                    "💡 想親眼看看成品？輸入「菜單」體驗我們的示範點餐系統！\n\n"
+                    "有任何問題都可以直接問我 😊\n\n"
+                    "---\n"
+                    "Hi! Welcome to Hualien Vibe Digital Studio.\n"
+                    "We build LINE ordering bots for cafés & restaurants.\n\n"
+                    "Type 菜單 to try our live demo, or just ask me anything!"
+                ),
+            }
         ],
     )
-    logger.info("Follow event — welcome sent")
+    logger.info("Follow event — sales welcome sent")
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
@@ -290,21 +298,9 @@ def handle_message(event: MessageEvent):
             _text(reply_token, "感謝您的訂單！我們將盡快為您準備。☀️")
         return
 
-    # ── First-time users get menu carousel alongside Claude reply ─────────────
-    is_first = not db.has_history(user_id)
     display_name = _get_display_name(user_id)
     reply = bot.get_reply(user_id, text, display_name, lang)
-
-    messages: list[dict] = [{"type": "text", "text": reply}]
-    if is_first:
-        messages.append(
-            {
-                "type": "flex",
-                "altText": "☀️ Sunny Cafe Menu",
-                "contents": flex_menu.build_menu_carousel(),
-            }
-        )
-    _send(reply_token, messages)
+    _send(reply_token, [{"type": "text", "text": reply}])
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
