@@ -11,6 +11,7 @@ import os
 import json
 import queue
 import threading
+import urllib.error
 import urllib.request
 from datetime import datetime
 
@@ -30,6 +31,33 @@ _HANDOFF_MARKER = "[[NOTIFY_OWNER]]"
 _notify_queue: queue.Queue = queue.Queue()
 
 
+def _push_messages(token: str, messages: list[dict]) -> None:
+    """Send a single LINE push call. Raises on HTTP error with full details."""
+    payload = json.dumps({
+        "to": OWNER_LINE_USER_ID,
+        "messages": messages,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.line.me/v2/bot/message/push",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        logger.error("LINE push failed: HTTP %s — %s", exc.code, body)
+        raise
+    except Exception as exc:
+        logger.error("LINE push failed: %s", exc)
+        raise
+
+
 def _notify_worker() -> None:
     while True:
         item = _notify_queue.get()
@@ -41,38 +69,36 @@ def _notify_worker() -> None:
 
             import db
             history = db.get_full_history(item["user_id"])
+
+            # Push 1: summary header (its own call so thread gets all 5 slots)
             header = (
                 f"🔔 新客戶詢問 / New lead!\n\n"
                 f"LINE User: {item['user_id']}\n\n"
                 f"📋 {item['summary']}\n\n"
                 f"請盡快聯繫他們 😊"
             )
-            messages = [{"type": "text", "text": header}]
-            if history:
-                thread_header = "── 完整對話 / Full conversation ──"
-                conversation = _format_conversation(history)
-                for i, chunk in enumerate(_chunk_text(conversation)):
-                    if len(messages) >= 5:
-                        break
-                    prefix = thread_header + "\n\n" if i == 0 else f"(續 {i+1}) "
-                    messages.append({"type": "text", "text": prefix + chunk})
+            _push_messages(token, [{"type": "text", "text": header}])
+            total_sent = 1
 
-            payload = json.dumps({
-                "to": OWNER_LINE_USER_ID,
-                "messages": messages,
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.line.me/v2/bot/message/push",
-                data=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {token}",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=10):
-                pass
-            logger.info("Owner notified about lead: %s (%d messages sent)", item["user_id"], len(messages))
+            # Push 2+: conversation thread, up to 5 messages per call
+            if history:
+                thread_label = "── 完整對話 / Full conversation ──\n\n"
+                cont_label = "(續 {n}) "
+                conversation = _format_conversation(history)
+                chunks = _chunk_text(conversation, prefix=thread_label)
+                batch: list[dict] = []
+                for i, chunk in enumerate(chunks):
+                    prefix = thread_label if i == 0 else cont_label.format(n=i + 1)
+                    batch.append({"type": "text", "text": prefix + chunk})
+                    if len(batch) == 5:
+                        _push_messages(token, batch)
+                        total_sent += len(batch)
+                        batch = []
+                if batch:
+                    _push_messages(token, batch)
+                    total_sent += len(batch)
+
+            logger.info("Owner notified about lead: %s (%d messages sent)", item["user_id"], total_sent)
         except Exception as exc:
             logger.error("Failed to notify owner: %s", exc)
         finally:
@@ -243,23 +269,28 @@ def _format_conversation(history: list[dict]) -> str:
     """Format conversation history as a readable thread."""
     lines = []
     for msg in history:
-        icon = "👤" if msg["role"] == "user" else "🤖"
-        # Truncate very long bot replies to keep the thread readable
+        if msg["role"] == "user":
+            icon, label = "👤", "Prospect"
+        else:
+            icon, label = "🤖", "Bot"
         content = msg["content"]
+        # Truncate very long bot replies to keep the thread scannable
         if msg["role"] == "assistant" and len(content) > 400:
             content = content[:400] + "…"
-        lines.append(f"{icon} {content}")
+        lines.append(f"{icon} {label}: {content}")
     return "\n\n".join(lines)
 
 
-def _chunk_text(text: str, limit: int = 4500) -> list[str]:
-    """Split text into chunks under LINE's message size limit."""
-    if len(text) <= limit:
+def _chunk_text(text: str, prefix: str = "", limit: int = 4500) -> list[str]:
+    """Split text into chunks that fit within LINE's message size limit.
+    Accounts for prefix length so the final message never exceeds limit."""
+    effective = limit - len(prefix)
+    if len(text) <= effective:
         return [text]
     chunks = []
     while text:
-        chunks.append(text[:limit])
-        text = text[limit:]
+        chunks.append(text[:effective])
+        text = text[effective:]
     return chunks
 
 
@@ -306,24 +337,29 @@ def get_reply(user_id: str, user_message: str,
         db.save_message(user_id, "assistant", reply)
         return reply
 
-    # Check for handoff marker — notify owner and strip marker from reply.
+    # Strip handoff marker from reply before saving or sending.
     # Only trigger on lines where the marker appears at the START (after stripping),
     # and only once on the first valid occurrence.
+    notified = False
     if _HANDOFF_MARKER in reply:
         lines = reply.split("\n")
         clean_lines = []
-        notified = False
         for line in lines:
             if not notified and line.strip().startswith(_HANDOFF_MARKER):
                 summary = line.strip()[len(_HANDOFF_MARKER):].strip()
                 if not summary or _HANDOFF_MARKER in summary or "\n" in summary:
                     logger.warning("Handoff marker found but summary is empty or invalid — skipping notification")
                 else:
-                    _notify_owner(user_id, summary)
                     notified = True
+                    handoff_summary = summary
             else:
                 clean_lines.append(line)
         reply = "\n".join(clean_lines).strip()
 
+    # Save reply first so the worker thread sees the complete conversation thread.
     db.save_message(user_id, "assistant", reply)
+
+    if notified:
+        _notify_owner(user_id, handoff_summary)
+
     return reply

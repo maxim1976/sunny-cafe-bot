@@ -602,13 +602,6 @@ def save_message(user_id: str, role: str, content: str) -> None:
             "INSERT INTO messages (user_id, role, content) VALUES (%s, %s, %s)",
             (user_id, role, content),
         )
-        # Prune old messages
-        cur.execute(
-            """DELETE FROM messages WHERE user_id = %s AND id NOT IN (
-               SELECT id FROM messages WHERE user_id = %s
-               ORDER BY id DESC LIMIT %s)""",
-            (user_id, user_id, MAX_HISTORY),
-        )
 
 
 def has_history(user_id: str) -> bool:
@@ -618,7 +611,9 @@ def has_history(user_id: str) -> bool:
 
 
 def get_full_history(user_id: str) -> list[dict]:
-    """Return all messages for a user ordered oldest first."""
+    """Return the complete message history for a user, oldest first.
+    Unlike get_history(), no row limit is applied — all stored messages returned.
+    save_message() no longer prunes, so this is truly the full thread."""
     with _conn() as conn, _cur(conn) as cur:
         cur.execute(
             "SELECT role, content FROM messages WHERE user_id = %s ORDER BY id ASC",
