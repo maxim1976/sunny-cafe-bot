@@ -617,6 +617,17 @@ def has_history(user_id: str) -> bool:
         return cur.fetchone() is not None
 
 
+def get_full_history(user_id: str) -> list[dict]:
+    """Return all messages for a user ordered oldest first."""
+    with _conn() as conn, _cur(conn) as cur:
+        cur.execute(
+            "SELECT role, content FROM messages WHERE user_id = %s ORDER BY id ASC",
+            (user_id,),
+        )
+        rows = cur.fetchall()
+    return [{"role": r["role"], "content": r["content"]} for r in rows]
+
+
 # ── Admin users ───────────────────────────────────────────────────────────────
 
 

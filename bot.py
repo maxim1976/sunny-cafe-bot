@@ -182,8 +182,34 @@ def _build_prompt(lang: str = "zh") -> str:
     )
 
 
+def _format_conversation(history: list[dict]) -> str:
+    """Format conversation history as a readable thread."""
+    lines = []
+    for msg in history:
+        icon = "👤" if msg["role"] == "user" else "🤖"
+        # Truncate very long bot replies to keep the thread readable
+        content = msg["content"]
+        if msg["role"] == "assistant" and len(content) > 400:
+            content = content[:400] + "…"
+        lines.append(f"{icon} {content}")
+    return "\n\n".join(lines)
+
+
+def _chunk_text(text: str, limit: int = 4500) -> list[str]:
+    """Split text into chunks under LINE's message size limit."""
+    if len(text) <= limit:
+        return [text]
+    chunks = []
+    while text:
+        chunks.append(text[:limit])
+        text = text[limit:]
+    return chunks
+
+
 def _notify_owner(prospect_user_id: str, summary: str) -> None:
-    """Push a notification to the owner's LINE when a prospect is ready."""
+    """Push a notification to the owner's LINE when a prospect is ready.
+    Sends: (1) summary header, (2) full conversation thread, split if needed.
+    """
     if not OWNER_LINE_USER_ID:
         logger.warning("OWNER_LINE_USER_ID not set — skipping owner notification")
         return
@@ -192,16 +218,32 @@ def _notify_owner(prospect_user_id: str, summary: str) -> None:
     if not token:
         return
 
-    message = (
+    # Fetch full conversation from DB
+    import db
+    history = db.get_full_history(prospect_user_id)
+
+    # Build message list — max 5 per LINE push call
+    header = (
         f"🔔 新客戶詢問 / New lead!\n\n"
         f"LINE User: {prospect_user_id}\n\n"
-        f"{summary}\n\n"
+        f"📋 {summary}\n\n"
         f"請盡快聯繫他們 😊"
     )
 
+    messages = [{"type": "text", "text": header}]
+
+    if history:
+        thread_header = "── 完整對話 / Full conversation ──"
+        conversation = _format_conversation(history)
+        for i, chunk in enumerate(_chunk_text(conversation)):
+            if len(messages) >= 5:
+                break
+            prefix = thread_header + "\n\n" if i == 0 else f"(續 {i+1}) "
+            messages.append({"type": "text", "text": prefix + chunk})
+
     payload = json.dumps({
         "to": OWNER_LINE_USER_ID,
-        "messages": [{"type": "text", "text": message}]
+        "messages": messages,
     }).encode()
 
     req = urllib.request.Request(
@@ -216,7 +258,7 @@ def _notify_owner(prospect_user_id: str, summary: str) -> None:
     try:
         with urllib.request.urlopen(req, timeout=10):
             pass
-        logger.info("Owner notified about lead: %s", prospect_user_id)
+        logger.info("Owner notified about lead: %s (%d messages sent)", prospect_user_id, len(messages))
     except Exception as exc:
         logger.error("Failed to notify owner: %s", exc)
 
