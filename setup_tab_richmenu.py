@@ -1,11 +1,21 @@
 """
-setup_tab_richmenu.py - One-time script to create the 2-tab bottom bar Rich Menu.
+setup_tab_richmenu.py - Creates the rich menu: store card (top) + 2 tabs.
 
-Run locally (NOT on Railway):
+Layout:
+  ┌──────────────────────────────────┐
+  │  [cafe photo]                    │  → opens LIFF (Open Menu)
+  │  Sunny Cafe                      │
+  │  address / phone / hours         │
+  │  [  瀏覽菜單 / Open Menu  ]      │
+  ├──────────────────┬───────────────┤
+  │   AI 顧問        │    地址       │
+  └──────────────────┴───────────────┘
+
+Run locally:
     pip install pillow
     python setup_tab_richmenu.py
 
-Requires LINE_CHANNEL_ACCESS_TOKEN in your .env file.
+Requires LINE_CHANNEL_ACCESS_TOKEN and LIFF_ID in .env
 """
 
 import json
@@ -15,17 +25,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import db
+db.init_pool()
+
 TOKEN      = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+LIFF_ID    = os.getenv("LIFF_ID", "")
 IMAGE_PATH = "richmenu_tab_image.jpg"
 MENU_NAME  = "Sunny Cafe Tab Bar"
 
-# Dimensions — thin bottom bar
-W, H = 2500, 810
+# ── Dimensions (LINE max = 2500 x 1686) ──────────────────────────────────────
+W        = 2500
+H_PHOTO  = 780    # hero image
+H_INFO   = 460    # white store info area
+H_BTN    = 160    # open-menu button strip
+H_TOP    = H_PHOTO + H_INFO + H_BTN   # 1400 — full card tap zone
+H_TABS   = 286                         # two bottom tabs
+H        = H_TOP + H_TABS              # 1686
 
-_COFFEE     = (107,  66,  38)   # #6B4226
+# ── Palette ───────────────────────────────────────────────────────────────────
+_COFFEE     = (107,  66,  38)
 _BROWN_MID  = (152, 101,  65)
 _WHITE      = (255, 255, 255)
 _CREAM_DARK = (245, 230, 204)
+_TEXT_DARK  = (80,  50,  25)
+_TEXT_GRAY  = (100, 100, 100)
 
 
 # ── Image generation ──────────────────────────────────────────────────────────
@@ -37,34 +60,104 @@ def create_image():
         print("❌  Pillow not installed. Run: pip install pillow")
         raise
 
-    col = W // 2
-    img = Image.new("RGB", (W, H), color=_WHITE)
+    # Fetch store info from DB (falls back to defaults on error)
+    try:
+        info = db.get_store_info()
+    except Exception as e:
+        print(f"⚠️  Could not fetch store info ({e}), using defaults")
+        info = {}
+    name    = info.get("name",    "Sunny Cafe")
+    address = info.get("address", "")
+    phone   = info.get("phone",   "")
+    hours   = info.get("hours",   "")
+
+    img  = Image.new("RGB", (W, H), color=_WHITE)
     draw = ImageDraw.Draw(img)
 
-    # Two colored panels
-    draw.rectangle([0,       0, col - 2, H], fill=_COFFEE)
-    draw.rectangle([col + 2, 0, W,      H], fill=_BROWN_MID)
-    # Divider
-    draw.rectangle([col - 2, 0, col + 2, H], fill=_WHITE)
+    # ── Hero photo ────────────────────────────────────────────────────────────
+    photo_path = "images/welcome.jpg"
+    if os.path.exists(photo_path):
+        from PIL import Image as PILImage
+        photo = PILImage.open(photo_path).convert("RGB")
+        # Scale to fill W x H_PHOTO (cover crop)
+        r = max(W / photo.width, H_PHOTO / photo.height)
+        new_w = int(photo.width  * r)
+        new_h = int(photo.height * r)
+        photo = photo.resize((new_w, new_h), PILImage.LANCZOS)
+        x_off = (new_w - W)      // 2
+        y_off = (new_h - H_PHOTO) // 2
+        photo = photo.crop((x_off, y_off, x_off + W, y_off + H_PHOTO))
+        img.paste(photo, (0, 0))
+        draw = ImageDraw.Draw(img)
 
-    try:
-        font_lg = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 120)
-        font_sm = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 72)
-    except OSError:
-        print("⚠️  JhengHei font not found — using default font")
-        font_lg = ImageFont.load_default()
-        font_sm = font_lg
+        # Subtle dark gradient at bottom of photo (readability)
+        for i in range(140):
+            alpha = int(160 * (i / 140))
+            draw.line([(0, H_PHOTO - 140 + i), (W, H_PHOTO - 140 + i)],
+                      fill=(40, 20, 5), width=1)
+            # Actually just draw semi-transparent won't work in RGB mode.
+            # Instead paint progressively darker lines
+    else:
+        draw.rectangle([0, 0, W, H_PHOTO], fill=_BROWN_MID)
 
-    cy = H // 2
-    labels = [
-        ("AI 顧問", "AI Consultant"),
-        ("地址",    "Location"),
-    ]
-    centers = [col // 2, col + col // 2]
+    # ── Store info area ───────────────────────────────────────────────────────
+    draw.rectangle([0, H_PHOTO, W, H_PHOTO + H_INFO], fill=_WHITE)
 
-    for cx, (zh, en) in zip(centers, labels):
-        draw.text((cx, cy - 70), zh, fill=_WHITE,      font=font_lg, anchor="mm")
-        draw.text((cx, cy + 70), en, fill=_CREAM_DARK, font=font_sm, anchor="mm")
+    # Thin amber accent line at top of info area
+    draw.rectangle([0, H_PHOTO, W, H_PHOTO + 8], fill=_BROWN_MID)
+
+    # ── Open Menu button strip ────────────────────────────────────────────────
+    draw.rectangle([0, H_PHOTO + H_INFO, W, H_TOP], fill=_COFFEE)
+
+    # ── Tab separator + panels ────────────────────────────────────────────────
+    draw.rectangle([0, H_TOP, W, H_TOP + 6], fill=_WHITE)
+    draw.rectangle([0,       H_TOP + 6, W // 2 - 3, H], fill=_COFFEE)
+    draw.rectangle([W // 2 + 3, H_TOP + 6, W,       H], fill=_BROWN_MID)
+    draw.rectangle([W // 2 - 3, H_TOP + 6, W // 2 + 3, H], fill=_WHITE)
+
+    # ── Fonts ─────────────────────────────────────────────────────────────────
+    def load_font(name_bold, name_reg, size):
+        for path in [f"C:/Windows/Fonts/{name_bold}", f"C:/Windows/Fonts/{name_reg}"]:
+            try:
+                return ImageFont.truetype(path, size)
+            except OSError:
+                continue
+        return ImageFont.load_default()
+
+    f_name    = load_font("msjhbd.ttc", "msjh.ttc", 96)
+    f_info    = load_font("msjh.ttc",   "msjh.ttc", 64)
+    f_btn     = load_font("msjhbd.ttc", "msjh.ttc", 76)
+    f_tab_lg  = load_font("msjhbd.ttc", "msjh.ttc", 88)
+    f_tab_sm  = load_font("msjh.ttc",   "msjh.ttc", 54)
+
+    # ── Cafe name ─────────────────────────────────────────────────────────────
+    pad = 80
+    y = H_PHOTO + 40
+    draw.text((pad, y), name, fill=_TEXT_DARK, font=f_name)
+    y += 115
+
+    # ── Info rows ─────────────────────────────────────────────────────────────
+    row_gap = 88
+    if address:
+        draw.text((pad, y), address, fill=_TEXT_GRAY, font=f_info)
+        y += row_gap
+    if phone:
+        draw.text((pad, y), phone,   fill=_TEXT_GRAY, font=f_info)
+        y += row_gap
+    if hours:
+        draw.text((pad, y), hours,   fill=_TEXT_GRAY, font=f_info)
+
+    # ── Button label ──────────────────────────────────────────────────────────
+    btn_cy = H_PHOTO + H_INFO + H_BTN // 2
+    draw.text((W // 2, btn_cy), "瀏覽菜單 / Open Menu",
+              fill=_WHITE, font=f_btn, anchor="mm")
+
+    # ── Tab labels ────────────────────────────────────────────────────────────
+    tab_cy = H_TOP + 6 + (H_TABS - 6) // 2
+    draw.text((W // 4,     tab_cy - 34), "AI 顧問",       fill=_WHITE,      font=f_tab_lg, anchor="mm")
+    draw.text((W // 4,     tab_cy + 56), "AI Consultant", fill=_CREAM_DARK, font=f_tab_sm, anchor="mm")
+    draw.text((3 * W // 4, tab_cy - 34), "地址",          fill=_WHITE,      font=f_tab_lg, anchor="mm")
+    draw.text((3 * W // 4, tab_cy + 56), "Location",      fill=_CREAM_DARK, font=f_tab_sm, anchor="mm")
 
     img.save(IMAGE_PATH, "JPEG", quality=95)
     print(f"✓ Image created: {IMAGE_PATH}")
@@ -85,11 +178,9 @@ def _line_get(path: str) -> dict:
 def _line_post(path: str, payload: dict | None = None, raw: bytes | None = None,
                content_type: str = "application/json") -> dict:
     base = "https://api-data.line.me" if "content" in path else "https://api.line.me"
-    url = base + path
     data = raw if raw is not None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        url,
-        data=data,
+        base + path, data=data,
         headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": content_type},
         method="POST",
     )
@@ -108,10 +199,7 @@ def _line_delete(path: str):
         resp.read()
 
 
-# ── Rich menu steps ───────────────────────────────────────────────────────────
-
 def delete_existing():
-    """Delete any rich menu named MENU_NAME so we can recreate it cleanly."""
     menus = _line_get("/v2/bot/richmenu/list").get("richmenus", [])
     for m in menus:
         if m.get("name") == MENU_NAME:
@@ -120,7 +208,7 @@ def delete_existing():
 
 
 def create_rich_menu() -> str:
-    col = W // 2
+    liff_url = f"https://liff.line.me/{LIFF_ID}" if LIFF_ID else "https://line.me"
     payload = {
         "size": {"width": W, "height": H},
         "selected": True,
@@ -128,22 +216,16 @@ def create_rich_menu() -> str:
         "chatBarText": "☀️ 菜單 Menu",
         "areas": [
             {
-                "bounds": {"x": 0, "y": 0, "width": col, "height": H},
-                "action": {
-                    "type": "postback",
-                    "label": "AI 顧問 AI Consultant",
-                    "data": "action=ai_consultant",
-                    "displayText": "AI 顧問",
-                },
+                "bounds": {"x": 0, "y": 0, "width": W, "height": H_TOP},
+                "action": {"type": "uri", "label": "Open Menu", "uri": liff_url},
             },
             {
-                "bounds": {"x": col, "y": 0, "width": col, "height": H},
-                "action": {
-                    "type": "postback",
-                    "label": "地址 Location",
-                    "data": "action=location",
-                    "displayText": "地址",
-                },
+                "bounds": {"x": 0, "y": H_TOP, "width": W // 2, "height": H_TABS},
+                "action": {"type": "message", "label": "AI 顧問", "text": "AI顧問"},
+            },
+            {
+                "bounds": {"x": W // 2, "y": H_TOP, "width": W // 2, "height": H_TABS},
+                "action": {"type": "message", "label": "地址", "text": "地址"},
             },
         ],
     }
@@ -155,12 +237,8 @@ def create_rich_menu() -> str:
 
 def upload_image(menu_id: str):
     with open(IMAGE_PATH, "rb") as f:
-        image_data = f.read()
-    _line_post(
-        f"/v2/bot/richmenu/{menu_id}/content",
-        raw=image_data,
-        content_type="image/jpeg",
-    )
+        data = f.read()
+    _line_post(f"/v2/bot/richmenu/{menu_id}/content", raw=data, content_type="image/jpeg")
     print("✓ Image uploaded to LINE")
 
 
@@ -173,7 +251,7 @@ def set_default(menu_id: str):
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("  Sunny Cafe — 2-Tab Rich Menu Setup")
+    print("  Sunny Cafe — Store Card Rich Menu Setup")
     print("=" * 50)
 
     delete_existing()
@@ -183,8 +261,9 @@ if __name__ == "__main__":
     set_default(menu_id)
 
     print()
-    print("✅  2-tab rich menu is now live for all users!")
+    print("✅  Rich menu is now live!")
     print(f"   Rich Menu ID: {menu_id}")
     print()
-    print("   Left  AI 顧問 / AI Consultant → postback action=ai_consultant")
-    print("   Right 地址 / Location          → postback action=location")
+    print("   Top card  → opens LIFF menu")
+    print("   AI 顧問   → sends 'AI顧問' message")
+    print("   地址      → sends '地址' message")
