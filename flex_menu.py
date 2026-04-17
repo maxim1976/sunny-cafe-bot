@@ -742,6 +742,53 @@ def build_confirm_quick_reply() -> dict:
 
 
 def build_open_menu_bubble(liff_url: str) -> dict:
+    info = db.get_store_info()
+    name    = info.get("name",    "Sunny Cafe")
+    address = info.get("address", "")
+    phone   = info.get("phone",   "")
+    hours   = info.get("hours",   "")
+
+    info_rows = []
+    if address:
+        info_rows.append({
+            "type": "box", "layout": "baseline", "spacing": "sm",
+            "contents": [
+                {"type": "text", "text": "📍", "size": "sm", "flex": 0},
+                {"type": "text", "text": address, "size": "sm", "color": "#555555", "wrap": True, "flex": 1},
+            ],
+        })
+    if phone:
+        info_rows.append({
+            "type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm",
+            "contents": [
+                {"type": "text", "text": "📞", "size": "sm", "flex": 0},
+                {"type": "text", "text": phone, "size": "sm", "color": "#555555", "flex": 1},
+            ],
+        })
+    if hours:
+        info_rows.append({
+            "type": "box", "layout": "baseline", "spacing": "sm", "margin": "sm",
+            "contents": [
+                {"type": "text", "text": "🕐", "size": "sm", "flex": 0},
+                {"type": "text", "text": hours, "size": "sm", "color": "#555555", "wrap": True, "flex": 1},
+            ],
+        })
+
+    body_contents = [
+        {
+            "type": "text",
+            "text": f"☀️  {name}",
+            "weight": "bold",
+            "size": "lg",
+            "color": _COFFEE,
+        },
+    ]
+    if info_rows:
+        body_contents.append({
+            "type": "box", "layout": "vertical", "margin": "md",
+            "contents": info_rows,
+        })
+
     return {
         "type": "bubble",
         "size": "kilo",
@@ -756,23 +803,7 @@ def build_open_menu_bubble(liff_url: str) -> dict:
             "type": "box",
             "layout": "vertical",
             "paddingAll": "16px",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": "☀️  Sunny Cafe",
-                    "weight": "bold",
-                    "size": "lg",
-                    "color": _COFFEE,
-                },
-                {
-                    "type": "text",
-                    "text": "點選下方按鈕開啟完整菜單\nTap below to browse the full menu",
-                    "size": "sm",
-                    "color": "#888888",
-                    "margin": "sm",
-                    "wrap": True,
-                },
-            ],
+            "contents": body_contents,
         },
         "footer": {
             "type": "box",
@@ -896,8 +927,8 @@ def build_welcome_flex() -> dict:
 
 def build_dine_in_info_bubble() -> dict:
     info = db.get_store_info()
-    maps_url = "https://maps.google.com/?q=" + urllib.parse.quote(
-        info.get("address", "")
+    maps_url = info.get("maps_url") or (
+        "https://maps.google.com/?q=" + urllib.parse.quote(info.get("address", ""))
     )
     return {
         "type": "bubble",

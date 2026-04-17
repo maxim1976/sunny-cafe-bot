@@ -7,6 +7,7 @@ import logging
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import defaultdict
 from datetime import timezone, timedelta
@@ -233,11 +234,7 @@ def handle_postback(event: PostbackEvent):
     reply_token = event.reply_token
     data = event.postback.data
 
-    if data == "action=view_menu":
-        liff_url = f"https://liff.line.me/{LIFF_ID}"
-        _flex(reply_token, "☀️ 開啟菜單 / Open Menu", flex_menu.build_open_menu_bubble(liff_url))
-
-    elif data == "action=ai_consultant":
+    if data == "action=ai_consultant":
         _text(
             reply_token,
             "您好！請直接輸入您的問題，我們的AI顧問會為您解答 😊\n\n"
@@ -247,7 +244,10 @@ def handle_postback(event: PostbackEvent):
     elif data == "action=location":
         info = db.get_store_info()
         address = info.get("address", "")
-        maps_url = info.get("google_maps_url", "")
+        maps_url = info.get("maps_url") or (
+            "https://maps.google.com/?q=" + urllib.parse.quote(info.get("address", ""))
+            if info.get("address") else ""
+        )
         parts = ["📍 我們的地址 / Our Address："]
         if address:
             parts.append(address)
