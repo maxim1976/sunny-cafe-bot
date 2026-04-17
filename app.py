@@ -20,7 +20,7 @@ from flask_wtf.csrf import CSRFProtect
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import ApiClient, Configuration, MessagingApi
-from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent, PostbackEvent
 
 import db
 import bot
@@ -225,6 +225,40 @@ def handle_follow(event: FollowEvent):
         ],
     )
     logger.info("Follow event — sales welcome sent")
+
+
+@handler.add(PostbackEvent)
+def handle_postback(event: PostbackEvent):
+    user_id = event.source.user_id
+    reply_token = event.reply_token
+    data = event.postback.data
+
+    if data == "action=view_menu":
+        liff_url = f"https://liff.line.me/{LIFF_ID}"
+        _flex(reply_token, "☀️ 開啟菜單 / Open Menu", flex_menu.build_open_menu_bubble(liff_url))
+
+    elif data == "action=ai_consultant":
+        _text(
+            reply_token,
+            "您好！請直接輸入您的問題，我們的AI顧問會為您解答 😊\n\n"
+            "Hi! Just type your question and our AI consultant will help you.",
+        )
+
+    elif data == "action=location":
+        info = db.get_store_info()
+        address = info.get("address", "")
+        maps_url = info.get("google_maps_url", "")
+        parts = ["📍 我們的地址 / Our Address："]
+        if address:
+            parts.append(address)
+        if maps_url:
+            parts.append(f"\n🗺 Google Maps：\n{maps_url}")
+        if not address and not maps_url:
+            parts.append("（地址資訊尚未設定 / Address not set yet）")
+        _text(reply_token, "\n".join(parts))
+
+    else:
+        logger.warning("Unknown postback data from %s: %s", user_id, data)
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
