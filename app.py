@@ -207,6 +207,7 @@ def webhook():
 
 @handler.add(FollowEvent)
 def handle_follow(event: FollowEvent):
+    liff_url = f"https://liff.line.me/{LIFF_ID}"
     _send(
         event.reply_token,
         [
@@ -215,17 +216,21 @@ def handle_follow(event: FollowEvent):
                 "text": (
                     "👋 您好！歡迎來到花蓮Vibe數位工作室！\n\n"
                     "我們為咖啡廳、餐廳、飲料店打造 LINE AI 點餐機器人。\n\n"
-                    "💡 想親眼看看成品？輸入「菜單」體驗我們的示範點餐系統！\n\n"
                     "有任何問題都可以直接問我 😊\n\n"
                     "---\n"
                     "Hi! Welcome to Hualien Vibe Digital Studio.\n"
                     "We build LINE ordering bots for cafés & restaurants.\n\n"
-                    "Type 菜單 to try our live demo, or just ask me anything!"
+                    "Ask me anything!"
                 ),
-            }
+            },
+            {
+                "type": "flex",
+                "altText": "☀️ 開啟菜單 / Open Menu",
+                "contents": flex_menu.build_open_menu_bubble(liff_url),
+            },
         ],
     )
-    logger.info("Follow event — sales welcome sent")
+    logger.info("Follow event — welcome + menu bubble sent")
 
 
 @handler.add(PostbackEvent)
